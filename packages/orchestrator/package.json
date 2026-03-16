@@ -1,0 +1,22 @@
+{
+  "name": "@ccbuddy/orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ccbuddy": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ccbuddy/core": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3"
+  }
+}

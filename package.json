@@ -1,0 +1,17 @@
+{
+  "name": "ccbuddy",
+  "private": true,
+  "packageManager": "npm@10.9.4",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "typescript": "^5.7",
+    "vitest": "^3"
+  }
+}

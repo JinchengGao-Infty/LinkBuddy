@@ -1,0 +1,20 @@
+{
+  "name": "@ccbuddy/agent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ccbuddy/core": "*",
+    "@anthropic-ai/claude-code": "^2"
+  },
+  "devDependencies": {
+    "vitest": "^3"
+  }
+}
