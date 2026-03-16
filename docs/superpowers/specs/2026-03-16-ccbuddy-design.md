@@ -157,14 +157,22 @@ interface Attachment {
   transcript?: string          // populated by STT for voice attachments
 }
 
+// All events carry full routing metadata for consistent gateway routing
+interface AgentEventBase {
+  sessionId: string
+  userId: string
+  channelId: string
+  platform: string
+}
+
 type AgentEvent =
-  | { type: 'text', sessionId: string, userId: string, content: string }
-  | { type: 'tool_use', sessionId: string, userId: string, tool: string }
-  | { type: 'complete', sessionId: string, userId: string, channelId: string, platform: string, response: string }
-  | { type: 'error', sessionId: string, userId: string, error: string }
+  | AgentEventBase & { type: 'text', content: string }
+  | AgentEventBase & { type: 'tool_use', tool: string }
+  | AgentEventBase & { type: 'complete', response: string }
+  | AgentEventBase & { type: 'error', error: string }
 ```
 
-All `AgentEvent` variants carry routing metadata (`sessionId`, `userId`) so the gateway can route responses without ambient state. The `complete` event additionally carries `channelId` and `platform` for direct delivery routing.
+All `AgentEvent` variants carry full routing metadata (`sessionId`, `userId`, `channelId`, `platform`) so the gateway can route any event — streaming progress, final responses, and errors — without parsing session IDs or maintaining ambient state.
 
 ### Backends
 
@@ -799,7 +807,7 @@ Designed to plug in as new modules without modifying existing ones:
 | Database | SQLite (via better-sqlite3 or drizzle) |
 | Discord | discord.js |
 | Telegram | grammY |
-| Event Bus | Local Redis pub/sub (upgradeable to NATS/RabbitMQ) |
+| Event Bus | In-process EventEmitter (upgradeable to Redis/NATS/RabbitMQ) |
 | STT | Local Whisper (fallback: OpenAI/AssemblyAI) |
 | Image Gen | DALL-E API (swappable) |
 | Apple Integration | osascript (AppleScript/JXA) |
