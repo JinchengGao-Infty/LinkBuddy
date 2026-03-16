@@ -2367,16 +2367,31 @@ export class CliBackend implements AgentBackend {
         }
 
         try {
-          const parsed = JSON.parse(stdout);
-          const text =
-            parsed.result ??
-            (Array.isArray(parsed)
-              ? parsed
+          // stream-json produces newline-delimited JSON (one object per line)
+          const lines = stdout.trim().split('\n').filter(Boolean);
+          let responseText = '';
+
+          for (const line of lines) {
+            try {
+              const obj = JSON.parse(line);
+              // Extract text from result messages
+              if (obj.type === 'result' && obj.result) {
+                responseText = obj.result;
+              } else if (obj.type === 'text' && obj.text) {
+                responseText += obj.text;
+              } else if (obj.type === 'assistant' && obj.message?.content) {
+                // Handle structured assistant messages
+                const texts = obj.message.content
                   .filter((b: any) => b.type === 'text')
-                  .map((b: any) => b.text)
-                  .join('\n')
-              : stdout);
-          resolve(text);
+                  .map((b: any) => b.text);
+                responseText += texts.join('\n');
+              }
+            } catch {
+              // Skip unparseable lines
+            }
+          }
+
+          resolve(responseText || stdout);
         } catch {
           resolve(stdout);
         }
@@ -3229,6 +3244,7 @@ describe('Integration: Event Bus → Agent Service', () => {
       maxConcurrent: 3,
       rateLimits: { admin: 30, chat: 10 },
       queueMaxDepth: 10,
+      queueTimeoutSeconds: 120,
       sessionTimeoutMinutes: 30,
       sessionCleanupHours: 24,
     });
@@ -3280,6 +3296,7 @@ describe('Integration: Event Bus → Agent Service', () => {
       maxConcurrent: 3,
       rateLimits: { admin: 30, chat: 10 },
       queueMaxDepth: 10,
+      queueTimeoutSeconds: 120,
       sessionTimeoutMinutes: 30,
       sessionCleanupHours: 24,
     });
