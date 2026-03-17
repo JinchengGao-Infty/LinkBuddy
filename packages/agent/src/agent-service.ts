@@ -20,6 +20,7 @@ interface QueuedRequest {
   request: AgentRequest;
   resolve: (value: void) => void;
   reject: (reason: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 export class AgentService {
@@ -97,11 +98,15 @@ export class AgentService {
 
   private tryEnqueue(request: AgentRequest): Promise<boolean> {
     return new Promise<boolean>((outerResolve) => {
-      const queued: QueuedRequest = {
-        request,
-        resolve: () => outerResolve(true),
-        reject: () => outerResolve(false),
+      // Placeholder so TypeScript accepts the forward reference
+      const queued = {} as QueuedRequest;
+
+      queued.request = request;
+      queued.resolve = () => {
+        clearTimeout(queued.timer);
+        outerResolve(true);
       };
+      queued.reject = () => outerResolve(false);
 
       const priority = request.permissionLevel as QueuePriority;
       const enqueued = this.queue.enqueue(queued, priority);
@@ -111,8 +116,9 @@ export class AgentService {
       }
 
       // Set a timeout to remove from queue if not processed in time
-      setTimeout(() => {
-        // If still waiting, reject
+      queued.timer = setTimeout(() => {
+        // Remove this specific item from the queue so it doesn't linger
+        this.queue.remove(queued);
         queued.reject(new Error('queue timeout'));
       }, this.queueTimeoutSeconds * 1000);
     });
@@ -122,6 +128,7 @@ export class AgentService {
     while (this.activeConcurrent < this.maxConcurrent) {
       const next = this.queue.dequeue();
       if (next === undefined) break;
+      clearTimeout(next.timer);
       next.resolve();
     }
   }

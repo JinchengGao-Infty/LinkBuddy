@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AgentService } from '../agent-service.js';
 import { createEventBus } from '@ccbuddy/core';
 import type { AgentBackend, AgentRequest, AgentEvent, AgentEventBase } from '@ccbuddy/core';
@@ -108,5 +108,57 @@ describe('AgentService', () => {
     const service = new AgentService({ ...defaultOpts, backend });
     await service.abort('test-session');
     expect(backend.abort).toHaveBeenCalledWith('test-session');
+  });
+
+  it('queue timeout: timed-out item is removed from queue and resolves false', async () => {
+    vi.useFakeTimers();
+
+    // Backend takes a long time — keeps the slot occupied
+    const backend: AgentBackend = {
+      async *execute(req: AgentRequest): AsyncGenerator<AgentEvent> {
+        const base: AgentEventBase = {
+          sessionId: req.sessionId, userId: req.userId,
+          channelId: req.channelId, platform: req.platform,
+        };
+        // never resolves during the test
+        await new Promise(() => {});
+        yield { ...base, type: 'complete', response: '' };
+      },
+      abort: vi.fn(),
+    };
+
+    const service = new AgentService({
+      ...defaultOpts,
+      backend,
+      maxConcurrent: 1,
+      queueMaxDepth: 5,
+      queueTimeoutSeconds: 2,
+      rateLimits: { admin: 1000, chat: 1000 },
+    });
+
+    // Start the first request — it occupies the single slot indefinitely
+    const p1 = collectEvents(service.handleRequest(makeRequest({ sessionId: 's1' })));
+    // Give the first request time to enter the backend
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Enqueue a second request (it will wait in the queue)
+    const p2Promise = collectEvents(service.handleRequest(makeRequest({ sessionId: 's2' })));
+
+    // The second request should be in the queue
+    expect(service.queueSize).toBe(1);
+
+    // Advance time past the queue timeout
+    await vi.advanceTimersByTimeAsync(2500);
+
+    // The queued request should have been removed from the queue and returned an error
+    expect(service.queueSize).toBe(0);
+    const events2 = await p2Promise;
+    expect(events2[0].type).toBe('error');
+    expect((events2[0] as any).error).toContain('busy');
+
+    vi.useRealTimers();
+    // Clean up p1 — abort it
+    await service.abort('s1');
+    // p1 never resolves without help, so we don't await it
   });
 });

@@ -35,6 +35,14 @@ export class PriorityQueue<T> {
     return true;
   }
 
+  /** Remove a specific item from the queue by reference equality. */
+  remove(item: T): boolean {
+    const index = this.entries.findIndex(e => e.item === item);
+    if (index === -1) return false;
+    this.entries.splice(index, 1);
+    return true;
+  }
+
   dequeue(): T | undefined {
     if (this.entries.length === 0) {
       return undefined;
