@@ -81,4 +81,11 @@ ccbuddy:
     expect(config.log_level).toBe('info');
     expect(config.agent.backend).toBe('sdk');
   });
+
+  it('has correct gateway defaults', () => {
+    const emptyDir = join(tmpDir, 'gateway-test');
+    mkdirSync(emptyDir);
+    const config = loadConfig(emptyDir);
+    expect(config.gateway.unknown_user_reply).toBe(true);
+  });
 });

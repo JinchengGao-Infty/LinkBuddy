@@ -30,18 +30,22 @@ export interface MemoryConfig {
   max_backups: number;
 }
 
-export interface PlatformChannelConfig {
+export type ActivationMode = 'all' | 'mention';
+
+export interface ChannelActivationConfig {
+  mode: ActivationMode;
+}
+
+export interface PlatformAdapterConfig {
+  enabled?: boolean;
   token?: string;
-  channel_id?: string;
-  guild_id?: string;
-  chat_id?: string;
-  [key: string]: string | undefined;
+  channels?: Record<string, ChannelActivationConfig>;
 }
 
 export interface PlatformConfig {
-  discord?: PlatformChannelConfig;
-  telegram?: PlatformChannelConfig;
-  [key: string]: PlatformChannelConfig | undefined;
+  discord?: PlatformAdapterConfig;
+  telegram?: PlatformAdapterConfig;
+  [key: string]: PlatformAdapterConfig | undefined;
 }
 
 export interface HeartbeatConfig {
@@ -92,8 +96,7 @@ export interface UserConfig {
 }
 
 export interface GatewayConfig {
-  host: string;
-  port: number;
+  unknown_user_reply: boolean;
 }
 
 export interface CCBuddyConfig {
@@ -147,8 +150,7 @@ export const DEFAULT_CONFIG: CCBuddyConfig = {
     max_backups: 7,
   },
   gateway: {
-    host: '127.0.0.1',
-    port: 18900,
+    unknown_user_reply: true,
   },
   platforms: {},
   scheduler: {
