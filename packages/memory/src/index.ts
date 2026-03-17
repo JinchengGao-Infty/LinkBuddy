@@ -1,7 +1,7 @@
 export { MemoryDatabase } from './database.js';
-export { MessageStore } from './message-store.js';
-export type { StoredMessage, AddMessageParams } from './message-store.js';
 export { estimateTokens } from './token-counter.js';
-export { SummaryStore } from './summary-store.js';
-export type { SummaryNode, AddSummaryParams } from './summary-store.js';
+export { MessageStore, type StoredMessage, type AddMessageParams } from './message-store.js';
+export { SummaryStore, type SummaryNode, type AddSummaryParams } from './summary-store.js';
 export { ProfileStore } from './profile-store.js';
+export { ContextAssembler, type ContextAssemblerConfig, type AssembledContext } from './context-assembler.js';
+export { RetrievalTools, type GrepResult, type ExpandResult, type DescribeResult } from './retrieval-tools.js';
