@@ -15,7 +15,7 @@ export class CliBackend implements AgentBackend {
     const args: string[] = [
       '-p', request.prompt,
       '--output-format', 'stream-json',
-      '--session-id', request.sessionId,
+      '--verbose',
     ];
 
     if (request.workingDirectory) args.push('--cwd', request.workingDirectory);

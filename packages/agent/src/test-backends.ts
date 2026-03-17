@@ -19,10 +19,12 @@ import type { AgentRequest } from '@ccbuddy/core';
 const [,, mode = 'both', ...promptParts] = process.argv;
 const prompt = promptParts.join(' ') || 'What is 2+2? Reply with just the number.';
 
+import { randomUUID } from 'crypto';
+
 const request: AgentRequest = {
   prompt,
   userId: 'test',
-  sessionId: `test-${Date.now()}`,
+  sessionId: randomUUID(),
   channelId: 'test',
   platform: 'test',
   permissionLevel: 'admin',

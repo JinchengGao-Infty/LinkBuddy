@@ -73,8 +73,7 @@ describe('CliBackend', () => {
     expect(args).toContain('Hello');
     expect(args).toContain('--output-format');
     expect(args).toContain('stream-json');
-    expect(args).toContain('--session-id');
-    expect(args).toContain('dad-discord-dev');
+    expect(args).toContain('--verbose');
   });
 
   it('emits complete event with response from NDJSON result line', async () => {
