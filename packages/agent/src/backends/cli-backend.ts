@@ -1,4 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type { AgentBackend, AgentRequest, AgentEvent, AgentEventBase } from '@ccbuddy/core';
 
 export class CliBackend implements AgentBackend {
@@ -19,6 +22,18 @@ export class CliBackend implements AgentBackend {
     ];
 
     if (request.workingDirectory) args.push('--cwd', request.workingDirectory);
+
+    let mcpConfigPath: string | undefined;
+    if (request.mcpServers && request.mcpServers.length > 0) {
+      mcpConfigPath = this.writeTempMcpConfig(request.mcpServers);
+      args.push('--mcp-config', mcpConfigPath);
+    }
+
+    // Pass system prompt for admin/system users (needed for skill nudge)
+    if (request.systemPrompt && request.permissionLevel !== 'chat') {
+      args.push('--system-prompt', request.systemPrompt);
+    }
+
     // System-level requests (scheduler) run unattended — no tool restrictions needed
     if (request.permissionLevel === 'chat') {
       args.push('--allowedTools', '');
@@ -35,6 +50,10 @@ export class CliBackend implements AgentBackend {
       yield { ...base, type: 'complete', response: result };
     } catch (err) {
       yield { ...base, type: 'error', error: (err as Error).message };
+    } finally {
+      if (mcpConfigPath) {
+        try { unlinkSync(mcpConfigPath); } catch { /* ignore cleanup errors */ }
+      }
     }
   }
 
@@ -44,6 +63,17 @@ export class CliBackend implements AgentBackend {
       proc.kill('SIGTERM');
       this.processes.delete(sessionId);
     }
+  }
+
+  private writeTempMcpConfig(mcpServers: AgentRequest['mcpServers']): string {
+    const config = {
+      mcpServers: Object.fromEntries(
+        (mcpServers ?? []).map(s => [s.name, { type: 'stdio', command: s.command, args: s.args, env: s.env }])
+      ),
+    };
+    const configPath = join(tmpdir(), `ccbuddy-mcp-${Date.now()}.json`);
+    writeFileSync(configPath, JSON.stringify(config));
+    return configPath;
   }
 
   private runClaude(args: string[], sessionId: string): Promise<string> {
