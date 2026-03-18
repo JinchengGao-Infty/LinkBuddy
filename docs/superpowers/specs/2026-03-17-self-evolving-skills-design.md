@@ -72,7 +72,7 @@ These are exposed via the MCP protocol — the SDK/CLI handles the full tool-use
 
 ### Startup
 
-1. Parse CLI args for `--registry <path>` and `--generated-dir <path>`
+1. Parse CLI args for `--registry <path>` and `--skills-dir <path>`
 2. Load SkillRegistry from YAML
 3. Create SkillGenerator with hooks (approval, git commit)
 4. Create SkillRunner with configured timeout
@@ -219,7 +219,7 @@ const skillMcpServerPath = config.skills.mcp_server_path
 const skillMcpServer = {
   name: 'ccbuddy-skills',
   command: 'node',
-  args: [skillMcpServerPath, '--registry', registryPath, '--generated-dir', config.skills.generated_dir],
+  args: [skillMcpServerPath, '--registry', registryPath, '--skills-dir', dirname(config.skills.generated_dir)],
 };
 
 // Inject into gateway's executeAgentRequest
