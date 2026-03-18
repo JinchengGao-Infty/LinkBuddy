@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { EventBus, MessageTarget } from '@ccbuddy/core';
 import type { HeartbeatOptions } from '../heartbeat.js';
 
+// Mock child_process.execFile so getDiskPercent resolves under fake timers
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn((_cmd: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+    cb(null, 'Filesystem  blocks  used  available capacity  mounted\n/dev/disk1  100  42  58  42%  /');
+  }),
+}));
+
 function createMockDeps(overrides: Partial<HeartbeatOptions> = {}): HeartbeatOptions {
   const eventBus: EventBus = {
     publish: vi.fn(async () => {}),

@@ -19,6 +19,7 @@ export class CliBackend implements AgentBackend {
     ];
 
     if (request.workingDirectory) args.push('--cwd', request.workingDirectory);
+    // System-level requests (scheduler) run unattended — no tool restrictions needed
     if (request.permissionLevel === 'chat') {
       args.push('--allowedTools', '');
       // Restrict to text-only responses for chat users via system prompt

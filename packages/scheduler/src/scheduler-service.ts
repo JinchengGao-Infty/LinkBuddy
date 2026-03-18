@@ -96,7 +96,7 @@ export class SchedulerService {
 
         const target = epConfig.target ?? this.deps.config.scheduler.default_target;
         if (!target) {
-          console.warn(`[Scheduler] Webhook endpoint "${name}" has no target — skipping`);
+          console.error(`[Scheduler] Webhook endpoint "${name}" has no target and no default_target — skipping`);
           continue;
         }
 
@@ -121,6 +121,11 @@ export class SchedulerService {
       sendProactiveMessage: this.deps.sendProactiveMessage,
     });
 
-    await this.webhookServer.start();
+    try {
+      await this.webhookServer.start();
+    } catch (err) {
+      console.error(`[Scheduler] Failed to start webhook server on port ${whConfig.port}:`, err);
+      this.webhookServer = null;
+    }
   }
 }

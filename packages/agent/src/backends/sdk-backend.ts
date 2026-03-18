@@ -38,6 +38,11 @@ export class SdkBackend implements AgentBackend {
       if (request.permissionLevel === 'admin' && this.options.skipPermissions) {
         options.permissionMode = 'bypassPermissions';
         options.allowDangerouslySkipPermissions = true;
+      } else if (request.permissionLevel === 'system') {
+        // System-level requests (scheduler, heartbeat, webhooks) run unattended —
+        // bypass permissions since no user is present to approve prompts
+        options.permissionMode = 'bypassPermissions';
+        options.allowDangerouslySkipPermissions = true;
       } else if (request.permissionLevel === 'chat') {
         options.allowedTools = [];
         // Restrict to text-only responses for chat users

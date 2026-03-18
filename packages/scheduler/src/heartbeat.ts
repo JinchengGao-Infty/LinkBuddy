@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { execFile } from 'node:child_process';
 import type {
   EventBus,
   MessageTarget,
@@ -75,7 +76,7 @@ export class HeartbeatMonitor {
     }
 
     // Gather system metrics
-    const system = this.getSystemMetrics();
+    const system = await this.getSystemMetrics();
 
     // Publish heartbeat.status event
     await this.opts.eventBus.publish('heartbeat.status', {
@@ -119,7 +120,7 @@ export class HeartbeatMonitor {
     }
   }
 
-  private getSystemMetrics(): { cpuPercent: number; memoryPercent: number; diskPercent: number } {
+  private async getSystemMetrics(): Promise<{ cpuPercent: number; memoryPercent: number; diskPercent: number }> {
     // CPU percent from os.cpus()
     const cpus = os.cpus();
     let totalIdle = 0;
@@ -135,10 +136,25 @@ export class HeartbeatMonitor {
     const totalMem = os.totalmem();
     const memoryPercent = totalMem > 0 ? Math.round((rss / totalMem) * 10000) / 100 : 0;
 
-    // Disk check deferred
-    const diskPercent = 0;
+    // Disk usage via df on the data directory (macOS/Linux)
+    const diskPercent = await this.getDiskPercent();
 
     return { cpuPercent, memoryPercent, diskPercent };
+  }
+
+  private getDiskPercent(): Promise<number> {
+    return new Promise((resolve) => {
+      execFile('df', ['-P', '.'], (err, stdout) => {
+        if (err) { resolve(0); return; }
+        const lines = stdout.trim().split('\n');
+        if (lines.length < 2) { resolve(0); return; }
+        const parts = lines[1].split(/\s+/);
+        // df -P output: Filesystem blocks used available capacity mountpoint
+        const capacityStr = parts[4]; // e.g. "42%"
+        const match = capacityStr?.match(/(\d+)%/);
+        resolve(match ? parseInt(match[1], 10) : 0);
+      });
+    });
   }
 
   private async handleTransitions(modules: Record<string, ModuleStatus>): Promise<void> {

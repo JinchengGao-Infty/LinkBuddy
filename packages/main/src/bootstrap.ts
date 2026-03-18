@@ -144,8 +144,7 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
   const sendProactiveMessage = async (target: { platform: string; channel: string }, text: string) => {
     const adapter = gateway.getAdapter(target.platform);
     if (!adapter) {
-      console.error(`[Scheduler] No adapter for platform '${target.platform}'`);
-      return;
+      throw new Error(`[Scheduler] No adapter for platform '${target.platform}'`);
     }
     const limit = target.platform === 'telegram' ? 4096 : 2000;
     const chunks = chunkMessage(text, limit);
@@ -167,7 +166,7 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     eventBus,
     executeAgentRequest: (request) => agentService.handleRequest(request),
     sendProactiveMessage,
-    runSkill: undefined,
+    runSkill: undefined, // skill-type jobs use the agent prompt path; direct skill execution deferred
     checkDatabase: async () => {
       // Lightweight DB health check — try to read a non-existent row
       messageStore.getById(0);
@@ -175,13 +174,12 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     },
     checkAgent: async () => {
       const start = Date.now();
-      try {
-        const { execSync } = await import('node:child_process');
-        execSync('claude --version', { timeout: 10_000, stdio: 'ignore' });
-        return { reachable: true, durationMs: Date.now() - start };
-      } catch {
-        return { reachable: false, durationMs: Date.now() - start };
-      }
+      const { execFile } = await import('node:child_process');
+      return new Promise<{ reachable: boolean; durationMs: number }>((resolve) => {
+        execFile('claude', ['--version'], { timeout: 10_000 }, (err) => {
+          resolve({ reachable: !err, durationMs: Date.now() - start });
+        });
+      });
     },
   });
 
