@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, ChannelType, Partials } from 'discord.js';
-import type { Message, TextBasedChannel } from 'discord.js';
+import type { Message, SendableChannels } from 'discord.js';
 import type { PlatformAdapter, IncomingMessage, Attachment } from '@ccbuddy/core';
 
 export interface DiscordAdapterConfig {
@@ -71,9 +71,9 @@ export class DiscordAdapter implements PlatformAdapter {
     if (channel) await channel.sendTyping();
   }
 
-  private async fetchTextChannel(channelId: string): Promise<TextBasedChannel | null> {
+  private async fetchTextChannel(channelId: string): Promise<SendableChannels | null> {
     const channel = await this.client.channels.fetch(channelId);
-    if (channel?.isTextBased()) return channel as TextBasedChannel;
+    if (channel?.isSendable()) return channel;
     return null;
   }
 
