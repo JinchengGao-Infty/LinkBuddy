@@ -1,0 +1,29 @@
+{
+  "name": "@ccbuddy/main",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ccbuddy/core": "*",
+    "@ccbuddy/agent": "*",
+    "@ccbuddy/memory": "*",
+    "@ccbuddy/skills": "*",
+    "@ccbuddy/gateway": "*",
+    "@ccbuddy/platform-discord": "*",
+    "@ccbuddy/platform-telegram": "*",
+    "@ccbuddy/orchestrator": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "vitest": "^3"
+  }
+}

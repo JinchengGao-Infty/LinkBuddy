@@ -1,1 +1,10 @@
 .worktrees/
+node_modules/
+dist/
+config/local.yaml
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.turbo/
+*.tsbuildinfo

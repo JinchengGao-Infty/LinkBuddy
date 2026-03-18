@@ -1,0 +1,22 @@
+{
+  "name": "@ccbuddy/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ccbuddy/core": "*",
+    "@anthropic-ai/claude-agent-sdk": "^0.2"
+  },
+  "devDependencies": {
+    "vitest": "^3",
+    "tsx": "^4"
+  }
+}
