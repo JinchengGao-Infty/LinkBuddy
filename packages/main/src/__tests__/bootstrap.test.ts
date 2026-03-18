@@ -324,7 +324,7 @@ describe('bootstrap', () => {
 
   it('does not create Telegram adapter when token is missing', async () => {
     const cfg = makeConfig();
-    cfg.platforms.telegram = { enabled: true };
+    (cfg.platforms as Record<string, unknown>).telegram = { enabled: true };
     mockLoadConfig.mockReturnValue(cfg);
     await bootstrap('/config');
     expect(mockTelegramAdapter).not.toHaveBeenCalled();

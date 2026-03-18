@@ -4,6 +4,7 @@ const mockSend = vi.fn().mockResolvedValue(undefined);
 const mockSendTyping = vi.fn().mockResolvedValue(undefined);
 const mockChannel = {
   isTextBased: () => true,
+  isSendable: () => true,
   send: mockSend,
   sendTyping: mockSendTyping,
 };
