@@ -47,19 +47,18 @@ ccbuddy:
 
   # --- Gateway ---
   gateway:
-    host: "127.0.0.1"
-    port: 18900
+    unknown_user_reply: true
 
   # --- Platforms ---
-  # Configure platform-specific credentials. Use ${ENV_VAR} for secrets.
+  # Configure in config/local.yaml with ${ENV_VAR} for secrets.
   # Example:
   # platforms:
   #   discord:
+  #     enabled: true
   #     token: "${DISCORD_BOT_TOKEN}"
-  #     guild_id: "123456789"
-  #   telegram:
-  #     token: "${TELEGRAM_BOT_TOKEN}"
-  #     chat_id: "${TELEGRAM_CHAT_ID}"
+  #     channels:
+  #       "channel-id":
+  #         mode: "all"    # or "mention"
   platforms: {}
 
   # --- Scheduler ---

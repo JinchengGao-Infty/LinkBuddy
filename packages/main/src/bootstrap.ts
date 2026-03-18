@@ -1,6 +1,6 @@
 import { join, dirname } from 'node:path';
 import { loadConfig, createEventBus, UserManager } from '@ccbuddy/core';
-import { AgentService, SdkBackend, CliBackend } from '@ccbuddy/agent';
+import { AgentService, CliBackend } from '@ccbuddy/agent';
 import {
   MemoryDatabase,
   MessageStore,
@@ -30,11 +30,14 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
   // 3. Create UserManager from config users
   const userManager = new UserManager(Object.values(config.users));
 
-  // 4. Create agent backend
-  const backend =
-    config.agent.backend === 'sdk'
-      ? new SdkBackend({ skipPermissions: config.agent.admin_skip_permissions })
-      : new CliBackend();
+  // 4. Create agent backend (SDK is dynamically imported to avoid side effects)
+  let backend;
+  if (config.agent.backend === 'sdk') {
+    const { SdkBackend } = await import('@ccbuddy/agent');
+    backend = new SdkBackend({ skipPermissions: config.agent.admin_skip_permissions });
+  } else {
+    backend = new CliBackend();
+  }
 
   // 5. Create AgentService
   const agentService = new AgentService({
