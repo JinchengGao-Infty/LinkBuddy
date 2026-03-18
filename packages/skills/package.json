@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ccbuddy/core": "*",
+    "@modelcontextprotocol/sdk": "^1",
     "js-yaml": "^4.1.0",
     "esbuild": "^0.25"
   },
