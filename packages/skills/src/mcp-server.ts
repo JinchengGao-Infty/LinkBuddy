@@ -73,6 +73,7 @@ const ELEVATED_PERMISSIONS: Set<SkillPermission> = new Set([
   'filesystem',
   'network',
   'shell',
+  'env',
 ]);
 
 function hasElevatedPermissions(permissions: SkillPermission[]): boolean {
@@ -187,6 +188,7 @@ async function main(): Promise<void> {
     const { name } = request.params;
     const toolArgs = (request.params.arguments ?? {}) as Record<string, unknown>;
 
+    try {
     // ── list_skills ───────────────────────────────────────────────────────
     if (name === 'list_skills') {
       const skills = registry.list().map(({ definition, metadata }) => ({
@@ -228,6 +230,7 @@ async function main(): Promise<void> {
             {
               type: 'text',
               text: JSON.stringify({
+                success: false,
                 error:
                   'This skill requires elevated permissions (' +
                   permissions.join(', ') +
@@ -299,10 +302,20 @@ async function main(): Promise<void> {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({ error: `Unknown tool: ${name}` }),
+          text: JSON.stringify({ success: false, error: `Unknown tool: ${name}` }),
         },
       ],
     };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ success: false, error: (err as Error).message }),
+          },
+        ],
+      };
+    }
   });
 
   // 7. Connect via stdio
