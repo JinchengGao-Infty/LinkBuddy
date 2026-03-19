@@ -113,7 +113,7 @@ async function main(): Promise<void> {
   // 2. Create validator, generator, runner
   const validator = new SkillValidator();
   const generator = new SkillGenerator(registry, validator, args.skillsDir);
-  const runner = new SkillRunner({ timeoutMs: 30_000 });
+  const runner = new SkillRunner({ timeoutMs: 120_000 });
 
   // 3. Wire git commit hook if enabled
   if (args.autoGitCommit) {
