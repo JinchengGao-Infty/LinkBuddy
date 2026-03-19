@@ -1,8 +1,10 @@
 import { Bot, InputFile } from 'grammy';
-import type { PlatformAdapter, IncomingMessage } from '@ccbuddy/core';
+import type { PlatformAdapter, IncomingMessage, Attachment, MediaConfig } from '@ccbuddy/core';
+import { fetchAttachment, validateAttachment } from '@ccbuddy/core';
 
 export interface TelegramAdapterConfig {
   token: string;
+  mediaConfig: MediaConfig;
 }
 
 export class TelegramAdapter implements PlatformAdapter {
@@ -51,6 +53,42 @@ export class TelegramAdapter implements PlatformAdapter {
       });
     });
 
+    this.bot.on('message:photo', async (ctx) => {
+      if (!this.messageHandler) return;
+
+      const msg = ctx.message;
+      const chat = ctx.chat;
+      const photo = msg.photo[msg.photo.length - 1];
+
+      await this.downloadAndDispatch({
+        fileId: photo.file_id,
+        mimeType: 'image/jpeg',
+        filename: undefined,
+        text: msg.caption ?? '',
+        ctx,
+        chat,
+        msg,
+      });
+    });
+
+    this.bot.on('message:document', async (ctx) => {
+      if (!this.messageHandler) return;
+
+      const msg = ctx.message;
+      const chat = ctx.chat;
+      const doc = msg.document;
+
+      await this.downloadAndDispatch({
+        fileId: doc.file_id,
+        mimeType: doc.mime_type ?? 'application/octet-stream',
+        filename: doc.file_name ?? undefined,
+        text: msg.caption ?? '',
+        ctx,
+        chat,
+        msg,
+      });
+    });
+
     await this.bot.start();
   }
 
@@ -80,5 +118,71 @@ export class TelegramAdapter implements PlatformAdapter {
   async setTypingIndicator(channelId: string, active: boolean): Promise<void> {
     if (!active) return;
     await this.bot.api.sendChatAction(Number(channelId), 'typing');
+  }
+
+  private async downloadAndDispatch(opts: {
+    fileId: string;
+    mimeType: string;
+    filename: string | undefined;
+    text: string;
+    ctx: unknown;
+    chat: { id: number; type: string };
+    msg: { from: { id: number }; reply_to_message?: { message_id: number } | null };
+  }): Promise<void> {
+    const { fileId, mimeType, filename, text, ctx, chat, msg } = opts;
+
+    const file = await (ctx as { api: { getFile(id: string): Promise<{ file_path?: string }> } }).api.getFile(fileId);
+
+    if (!file.file_path) {
+      console.warn('[TelegramAdapter] No file_path returned for file_id:', fileId);
+      return;
+    }
+
+    const url = `https://api.telegram.org/file/bot${this.config.token}/${file.file_path}`;
+
+    let data: Buffer;
+    try {
+      data = await fetchAttachment(url, {
+        maxBytes: this.config.mediaConfig.max_file_size_mb * 1024 * 1024,
+      });
+    } catch (err) {
+      console.warn(`[TelegramAdapter] Failed to download attachment: ${(err as Error).message}`);
+      return;
+    }
+
+    const attachment: Attachment = {
+      type: mimeType.startsWith('image/') ? 'image' : 'file',
+      mimeType,
+      data,
+      filename,
+    };
+
+    const validation = validateAttachment(attachment, this.config.mediaConfig);
+    if (!validation.valid) {
+      console.warn(`[TelegramAdapter] Attachment skipped: ${validation.reason}`);
+      return;
+    }
+
+    const isDm = chat.type === 'private';
+    const botUsername = this.bot.botInfo?.username;
+    const isMention = botUsername ? text.includes(`@${botUsername}`) : false;
+
+    const normalized: IncomingMessage = {
+      platform: 'telegram',
+      platformUserId: String(msg.from.id),
+      channelId: String(chat.id),
+      channelType: isDm ? 'dm' : 'group',
+      text,
+      attachments: [attachment],
+      isMention: isDm || isMention,
+      replyToMessageId: msg.reply_to_message?.message_id
+        ? String(msg.reply_to_message.message_id)
+        : undefined,
+      raw: ctx,
+    };
+
+    Promise.resolve(this.messageHandler!(normalized)).catch((err) => {
+      console.error('[TelegramAdapter] Unhandled error in message handler:', err);
+    });
   }
 }
