@@ -87,6 +87,8 @@ export class Gateway {
       return;
     }
 
+    console.log(`[Gateway] Incoming: platform=${msg.platform} user=${msg.platformUserId} channel=${msg.channelId}`);
+
     // 3. Build routing info
     const sessionId = this.deps.buildSessionId(user.name, msg.platform, msg.channelId);
 

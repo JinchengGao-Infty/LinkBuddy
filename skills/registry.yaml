@@ -1,2 +1,25 @@
-# CCBuddy Skill Registry
-skills: []
+skills:
+  - definition:
+      name: celsius-to-fahrenheit
+      description: >-
+        Converts a temperature from Celsius to Fahrenheit using the formula F =
+        (C × 9/5) + 32
+      version: 1.0.0
+      source: generated
+      filePath: skills/generated/celsius-to-fahrenheit.mjs
+      inputSchema:
+        type: object
+        properties:
+          celsius:
+            type: number
+            description: Temperature in Celsius to convert
+        required:
+          - celsius
+      permissions: []
+      enabled: true
+    metadata:
+      createdBy: agent
+      createdAt: '2026-03-19T00:42:50.327Z'
+      updatedAt: '2026-03-19T00:42:50.327Z'
+      usageCount: 3
+      lastUsed: '2026-03-19T00:48:08.151Z'

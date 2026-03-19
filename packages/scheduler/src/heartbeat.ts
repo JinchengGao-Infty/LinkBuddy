@@ -37,6 +37,7 @@ export class HeartbeatMonitor {
   }
 
   start(): void {
+    console.log(`[Heartbeat] Started (interval: ${this.opts.intervalSeconds}s)`);
     this.intervalHandle = setInterval(() => {
       void this.runChecks();
     }, this.opts.intervalSeconds * 1000);
@@ -55,6 +56,7 @@ export class HeartbeatMonitor {
       clearTimeout(this.dailyReportTimeout);
       this.dailyReportTimeout = null;
     }
+    console.log('[Heartbeat] Stopped');
   }
 
   async runChecks(): Promise<void> {
@@ -77,6 +79,10 @@ export class HeartbeatMonitor {
 
     // Gather system metrics
     const system = await this.getSystemMetrics();
+
+    // Log summary
+    const summary = Object.entries(modules).map(([m, s]) => `${m}=${s}`).join(' ');
+    console.log(`[Heartbeat] ${summary} | cpu=${system.cpuPercent}% mem=${system.memoryPercent}% disk=${system.diskPercent}%`);
 
     // Publish heartbeat.status event
     await this.opts.eventBus.publish('heartbeat.status', {

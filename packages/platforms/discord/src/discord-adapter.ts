@@ -28,6 +28,10 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async start(): Promise<void> {
+    this.client.once('clientReady', () => {
+      console.log(`[Discord] Bot ready as ${this.client.user?.tag}`);
+    });
+
     this.client.on('messageCreate', (msg: Message) => {
       if (msg.author.bot) return;
       if (!this.messageHandler) return;

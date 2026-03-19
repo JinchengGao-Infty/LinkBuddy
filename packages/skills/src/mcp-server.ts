@@ -150,7 +150,7 @@ async function main(): Promise<void> {
         properties: {
           name: { type: 'string', description: 'Skill name (lowercase, alphanumeric, hyphens)' },
           description: { type: 'string', description: 'What the skill does' },
-          code: { type: 'string', description: 'Skill source code with export default async function' },
+          code: { type: 'string', description: 'Skill source code — must be plain JavaScript (no TypeScript syntax), with export default async function' },
           input_schema: {
             type: 'object',
             description: 'JSON Schema for skill input',
