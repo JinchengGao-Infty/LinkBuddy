@@ -43,11 +43,11 @@ Three-phase process:
 
 #### Phase 1: Leaf Summarization
 
-1. Find messages for the user that have `summarized_at IS NULL`, excluding the most recent `fresh_tail_count` messages (never touch the active conversation tail)
+1. Call new `MessageStore.getUnsummarizedMessages(userId, excludeRecent)` — returns messages where `summarized_at IS NULL`, ordered by timestamp ASC, excluding the most recent `fresh_tail_count` messages **across all sessions** (never touch the active conversation tail). Query: `SELECT * FROM messages WHERE user_id = ? AND summarized_at IS NULL ORDER BY timestamp ASC LIMIT -1 OFFSET (SELECT MAX(0, COUNT(*) - ?) FROM messages WHERE user_id = ? AND summarized_at IS NULL)` — but simpler: fetch all unsummarized, drop the last N.
 2. Batch messages into chunks of ~`leaf_chunk_tokens` tokens each
 3. For each chunk:
    - Call `summarize()` with a prompt: "Summarize this conversation preserving key facts, decisions, and user preferences"
-   - Insert result as a depth-0 summary node with `source_ids` = original message IDs
+   - Insert result as a depth-0 summary node with `source_ids` = original message IDs, `tokens` = `estimateTokens(summaryText)`
    - Set `summarized_at = Date.now()` on the source messages
 4. Wrap each chunk's insert + update in a transaction for atomicity
 
@@ -67,10 +67,11 @@ Three-phase process:
    - `summarized_at IS NOT NULL`
    - `summarized_at < Date.now() - (message_retention_days * 86400000)`
 2. This preserves `memory_expand` capability for recent history while bounding database growth
+3. **Note:** After pruning, depth-0 summary nodes' `source_ids` become dangling references. This is intentional — the summaries themselves contain the compressed information. `memory_expand` on these nodes will return the summary text rather than original messages.
 
 ### `runFullConsolidation(): Promise<Map<string, ConsolidationStats>>`
 
-Gets all distinct user IDs from MessageStore, runs `consolidate()` for each. Returns stats per user.
+Calls new `MessageStore.getDistinctUserIds()` (`SELECT DISTINCT user_id FROM messages`), runs `consolidate()` for each. Returns stats per user. Concurrency is guarded by the `CronRunner.running` flag which prevents overlapping cron executions of the same job.
 
 ### `ConsolidationStats`
 
@@ -101,7 +102,7 @@ interface ConsolidationStats {
 4. Open the backup file read-only with better-sqlite3
 5. Run `PRAGMA integrity_check`
 6. Close the backup database
-7. If integrity check fails, emit `backup.integrity_failed` event with details
+7. If integrity check fails, emit `backup.integrity_failed` event with details, delete the corrupt file (it would waste a rotation slot and is untrustworthy)
 8. Call `rotateBackups()`
 
 ### `rotateBackups(): Promise<void>`
@@ -109,31 +110,75 @@ interface ConsolidationStats {
 1. List `*.sqlite` files in `backup_dir`, sorted alphabetically (timestamp naming = chronological)
 2. If count > `max_backups`, delete the oldest excess files
 
+## New Store Methods
+
+### MessageStore
+- `getUnsummarizedMessages(userId: string, excludeRecent: number): Message[]` — Returns messages where `summarized_at IS NULL` for the user, ordered by timestamp ASC, excluding the N most recent unsummarized messages (cross-session). Implementation: fetch all unsummarized ordered by timestamp ASC, slice off the last `excludeRecent`.
+- `getDistinctUserIds(): string[]` — `SELECT DISTINCT user_id FROM messages`.
+- `markSummarized(ids: number[], timestamp: number): void` — `UPDATE messages SET summarized_at = ? WHERE id IN (...)`.
+- `pruneOldSummarized(beforeTimestamp: number): number` — `DELETE FROM messages WHERE summarized_at IS NOT NULL AND summarized_at < ?`. Returns count deleted.
+
+### SummaryStore
+- `getUncondensedByDepth(userId: string, depth: number): SummaryNode[]` — `WHERE user_id = ? AND depth = ? AND condensed_at IS NULL`.
+- `markCondensed(ids: number[], timestamp: number): void` — `UPDATE summary_nodes SET condensed_at = ? WHERE id IN (...)`.
+
 ## SQLite Schema Changes
 
-Migration-style additions in `MemoryDatabase` (check column existence before adding):
+Migration-style additions in `MemoryDatabase.init()`. Use `PRAGMA table_info(tablename)` to check if columns exist before adding — consistent with the existing `CREATE TABLE IF NOT EXISTS` pattern:
 
-```sql
-ALTER TABLE messages ADD COLUMN summarized_at INTEGER;
-ALTER TABLE summary_nodes ADD COLUMN condensed_at INTEGER;
+```typescript
+const messagesCols = db.pragma('table_info(messages)') as Array<{ name: string }>;
+if (!messagesCols.some(c => c.name === 'summarized_at')) {
+  db.exec('ALTER TABLE messages ADD COLUMN summarized_at INTEGER');
+}
+// same pattern for summary_nodes.condensed_at
 ```
 
 ## Scheduler Integration
 
-### New Job Type
+### Job Type: Discriminated Union
 
-Add `'internal'` to the `ScheduledJob.type` union:
+Refactor `ScheduledJob` into a discriminated union to avoid dummy fields on internal jobs:
 
 ```typescript
-type: 'prompt' | 'skill' | 'internal';
-```
+interface BaseJob {
+  name: string;
+  cron: string;
+  enabled: boolean;
+  nextRun: number;
+  lastRun?: number;
+  running: boolean;
+  timezone?: string;
+}
 
-Internal jobs store a callback reference instead of a prompt payload.
+interface PromptJob extends BaseJob {
+  type: 'prompt';
+  payload: string;
+  user: string;
+  target: MessageTarget;
+  permissionLevel: 'admin' | 'system';
+}
+
+interface SkillJob extends BaseJob {
+  type: 'skill';
+  payload: string;
+  user: string;
+  target: MessageTarget;
+  permissionLevel: 'admin' | 'system';
+}
+
+interface InternalJob extends BaseJob {
+  type: 'internal';
+}
+
+type ScheduledJob = PromptJob | SkillJob | InternalJob;
+```
 
 ### CronRunner Changes
 
 When `job.type === 'internal'`:
-- Execute the registered callback directly
+- Look up callback from `internalJobs` map by job name
+- Execute the callback directly
 - No agent session, no proactive message
 - Log success/failure
 - Emit `scheduler.job.complete` event
@@ -167,6 +212,14 @@ In `packages/main/src/bootstrap.ts`, after memory stores are initialized:
    - `memory_backup`: cron from `config.memory.backup_cron`, callback = `backupService.backup()`
 
 ## Events
+
+Add to `EventMap` in `packages/core/src/types/events.ts`:
+
+```typescript
+'consolidation.complete': ConsolidationStats;
+'backup.complete': { path: string };
+'backup.integrity_failed': { path: string; error: string };
+```
 
 | Event | Payload | When |
 |-------|---------|------|
