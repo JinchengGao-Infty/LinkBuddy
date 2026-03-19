@@ -192,6 +192,10 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     }),
     sendProactiveMessage,
     runSkill: undefined, // skill-type jobs use the agent prompt path; direct skill execution deferred
+    assembleContext: (userId, sessionId) => {
+      const context = contextAssembler.assemble(userId, sessionId);
+      return contextAssembler.formatAsPrompt(context);
+    },
     checkDatabase: async () => {
       // Lightweight DB health check — try to read a non-existent row
       messageStore.getById(0);

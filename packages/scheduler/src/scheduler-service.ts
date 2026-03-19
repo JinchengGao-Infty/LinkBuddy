@@ -18,6 +18,7 @@ export class SchedulerService {
       sendProactiveMessage: deps.sendProactiveMessage,
       runSkill: deps.runSkill,
       timezone: deps.config.scheduler.timezone,
+      assembleContext: deps.assembleContext,
     });
   }
 
@@ -61,6 +62,7 @@ export class SchedulerService {
         enabled: jobConfig.enabled !== false,
         nextRun: 0,
         running: false,
+        timezone: jobConfig.timezone,
       };
 
       this.jobs.push(job);

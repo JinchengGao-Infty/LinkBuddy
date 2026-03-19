@@ -118,6 +118,7 @@ function createMockDeps(overrides: Partial<SchedulerDeps> = {}): SchedulerDeps {
 
   const sendProactiveMessage = vi.fn(async () => {});
   const runSkill = vi.fn(async () => 'skill-result');
+  const assembleContext = vi.fn().mockReturnValue('');
   const checkDatabase = vi.fn(async () => true);
   const checkAgent = vi.fn(async () => ({ reachable: true, durationMs: 50 }));
 
@@ -132,6 +133,7 @@ function createMockDeps(overrides: Partial<SchedulerDeps> = {}): SchedulerDeps {
     executeAgentRequest,
     sendProactiveMessage,
     runSkill,
+    assembleContext,
     checkDatabase,
     checkAgent,
     ...overrides,
@@ -197,5 +199,25 @@ describe('SchedulerService', () => {
 
     await service.start();
     await expect(service.stop()).resolves.not.toThrow();
+  });
+
+  it('maps timezone from job config to ScheduledJob', async () => {
+    const config = createMinimalConfig();
+    config.scheduler.jobs = {
+      briefing: {
+        cron: '0 7 * * *',
+        prompt: 'Morning briefing',
+        user: 'testuser',
+        timezone: 'America/Chicago',
+      },
+    };
+    const deps = createMockDeps({ config });
+    const service = new SchedulerService(deps);
+    await service.start();
+
+    const jobs = service.getJobs();
+    expect(jobs[0].timezone).toBe('America/Chicago');
+
+    await service.stop();
   });
 });
