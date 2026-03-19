@@ -1,4 +1,5 @@
 import { join, dirname } from 'node:path';
+import { writeFileSync, renameSync } from 'node:fs';
 import { loadConfig, createEventBus, UserManager } from '@ccbuddy/core';
 import { AgentService, CliBackend } from '@ccbuddy/agent';
 import {
@@ -88,6 +89,8 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
       '--skills-dir', registryDir,
       ...(config.skills.require_admin_approval_for_elevated ? [] : ['--no-approval']),
       ...(config.skills.auto_git_commit ? [] : ['--no-git-commit']),
+      '--memory-db', config.memory.db_path,
+      '--heartbeat-status-file', join(config.data_dir, 'heartbeat-status.json'),
     ],
   };
 
@@ -214,6 +217,18 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
 
   shutdownHandler.register('scheduler', async () => {
     await schedulerService.stop();
+  });
+
+  // Heartbeat status file — atomic write for MCP server reads
+  const heartbeatStatusPath = join(config.data_dir, 'heartbeat-status.json');
+  eventBus.subscribe('heartbeat.status', (data: unknown) => {
+    const tmpPath = heartbeatStatusPath + '.tmp';
+    try {
+      writeFileSync(tmpPath, JSON.stringify(data), 'utf8');
+      renameSync(tmpPath, heartbeatStatusPath);
+    } catch {
+      // Non-fatal — MCP server will report "no data"
+    }
   });
 
   await schedulerService.start();
