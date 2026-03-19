@@ -178,6 +178,16 @@ export class Gateway {
             }
             break;
           }
+          case 'media': {
+            for (const item of event.media) {
+              if (item.mimeType.startsWith('image/')) {
+                await adapter.sendImage(msg.channelId, item.data, item.filename);
+              } else {
+                await adapter.sendFile(msg.channelId, item.data, item.filename ?? 'file');
+              }
+            }
+            break;
+          }
           case 'error':
             await adapter.sendText(
               msg.channelId,
