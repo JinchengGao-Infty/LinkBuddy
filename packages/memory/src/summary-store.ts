@@ -72,11 +72,12 @@ export class SummaryStore {
   }
 
   search(userId: string, query: string): SummaryNode[] {
+    const escaped = query.replace(/[%_\\]/g, '\\$&');
     const rows = this.db.raw().prepare(`
       SELECT * FROM summary_nodes
-      WHERE user_id = ? AND content LIKE ?
+      WHERE user_id = ? AND content LIKE ? ESCAPE '\\'
       ORDER BY timestamp ASC, id ASC
-    `).all(userId, `%${query}%`);
+    `).all(userId, `%${escaped}%`);
     return rows.map((r: any) => this.toNode(r));
   }
 

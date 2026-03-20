@@ -101,11 +101,13 @@ export class MessageStore {
   }
 
   search(userId: string, query: string): StoredMessage[] {
+    // Escape LIKE special characters so they match literally
+    const escaped = query.replace(/[%_\\]/g, '\\$&');
     const rows = this.db.raw().prepare(`
       SELECT * FROM messages
-      WHERE user_id = ? AND content LIKE ?
+      WHERE user_id = ? AND content LIKE ? ESCAPE '\\'
       ORDER BY timestamp ASC, id ASC
-    `).all(userId, `%${query}%`);
+    `).all(userId, `%${escaped}%`);
     return rows.map((r: any) => this.toMessage(r));
   }
 

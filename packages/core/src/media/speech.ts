@@ -21,8 +21,8 @@ export class SpeechService {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Speech synthesis failed (${response.status}): ${text}`);
+      const errorText = await response.text();
+      throw new Error(`Speech synthesis failed (${response.status}): ${errorText}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
