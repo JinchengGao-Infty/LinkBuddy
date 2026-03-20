@@ -32,6 +32,9 @@ export interface MemoryConfig {
   backup_dir: string;
   max_backups: number;
   message_retention_days: number;
+  memory_palace?: {
+    sse_url: string;
+  };
 }
 
 export type ActivationMode = 'all' | 'mention';

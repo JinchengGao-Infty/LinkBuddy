@@ -40,7 +40,16 @@ export class SdkBackend implements AgentBackend {
 
       if (request.mcpServers && request.mcpServers.length > 0) {
         options.mcpServers = Object.fromEntries(
-          request.mcpServers.map(s => [s.name, { type: 'stdio' as const, command: s.command, args: s.args, env: s.env }])
+          request.mcpServers.map(s => {
+            if (s.type === 'sse') {
+              return [s.name, { type: 'sse' as const, url: s.url, headers: s.headers }];
+            }
+            if (s.type === 'http') {
+              return [s.name, { type: 'http' as const, url: s.url, headers: s.headers }];
+            }
+            // stdio (default)
+            return [s.name, { type: 'stdio' as const, command: s.command, args: s.args, env: s.env }];
+          })
         );
       }
 

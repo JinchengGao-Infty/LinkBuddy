@@ -144,6 +144,15 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     skillMcpServer.args.push('--apple-helper', helperPath);
   }
 
+  // Build Memory Palace MCP server spec (SSE transport)
+  const memoryPalaceMcpServer = {
+    name: 'memory-palace',
+    type: 'sse' as const,
+    url: config.memory.memory_palace?.sse_url ?? 'http://localhost:8765',
+  };
+
+  const mcpServers = [skillMcpServer, memoryPalaceMcpServer];
+
   const skillNudge = 'You have access to reusable skills (prefixed skill_) and can create new ones with create_skill. When you solve a novel problem that could be reusable, consider creating a skill for it.\n\nFor image generation requests, use the skill_generate_image tool directly with a descriptive prompt. Do not deliberate — just call the tool.';
 
   // 7c. Voice services (optional)
@@ -166,7 +175,7 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
       userManager.buildSessionId(userName, platform, channelId),
     executeAgentRequest: (request) => agentService.handleRequest({
       ...request,
-      mcpServers: [skillMcpServer],
+      mcpServers,
       systemPrompt: [request.systemPrompt, skillNudge].filter(Boolean).join('\n\n'),
     }),
     assembleContext: (userId, sessionId) => {
@@ -262,7 +271,7 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     eventBus,
     executeAgentRequest: (request) => agentService.handleRequest({
       ...request,
-      mcpServers: [skillMcpServer],
+      mcpServers,
       systemPrompt: [request.systemPrompt, skillNudge].filter(Boolean).join('\n\n'),
     }),
     sendProactiveMessage,

@@ -46,6 +46,8 @@ link_buddy:
     backup_dir: "./data/backups"
     max_backups: 7
     message_retention_days: 30
+    memory_palace:
+      sse_url: "http://localhost:8765"
 
   # --- Gateway ---
   gateway:
@@ -58,6 +60,8 @@ link_buddy:
   # --- Scheduler ---
   scheduler:
     timezone: "UTC"
+    # default_target: configure in local.yaml
+    # jobs: configure in local.yaml
 
   # --- Heartbeat ---
   heartbeat:

@@ -77,7 +77,15 @@ export class CliBackend implements AgentBackend {
   private writeTempMcpConfig(mcpServers: AgentRequest['mcpServers']): string {
     const config = {
       mcpServers: Object.fromEntries(
-        (mcpServers ?? []).map(s => [s.name, { type: 'stdio', command: s.command, args: s.args, env: s.env }])
+        (mcpServers ?? []).map(s => {
+          if (s.type === 'sse') {
+            return [s.name, { type: 'sse', url: s.url, headers: s.headers }];
+          }
+          if (s.type === 'http') {
+            return [s.name, { type: 'http', url: s.url, headers: s.headers }];
+          }
+          return [s.name, { type: 'stdio', command: s.command, args: s.args, env: s.env }];
+        })
       ),
     };
     const configPath = join(tmpdir(), `ccbuddy-mcp-${Date.now()}.json`);

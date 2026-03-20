@@ -6,6 +6,11 @@ export interface Attachment {
   transcript?: string;
 }
 
+export type McpServerSpec =
+  | { name: string; type?: 'stdio'; command: string; args: string[]; env?: Record<string, string> }
+  | { name: string; type: 'sse'; url: string; headers?: Record<string, string> }
+  | { name: string; type: 'http'; url: string; headers?: Record<string, string> };
+
 export interface AgentRequest {
   prompt: string;
   userId: string;
@@ -18,7 +23,7 @@ export interface AgentRequest {
   memoryContext?: string;
   attachments?: Attachment[];
   permissionLevel: 'admin' | 'chat' | 'system';
-  mcpServers?: Array<{ name: string; command: string; args: string[]; env?: Record<string, string> }>;
+  mcpServers?: Array<McpServerSpec>;
 }
 
 export interface AgentEventBase {
