@@ -34,6 +34,7 @@ export interface MemoryConfig {
   message_retention_days: number;
   memory_palace?: {
     sse_url: string;
+    api_key?: string;
   };
 }
 

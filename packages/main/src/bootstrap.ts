@@ -149,6 +149,9 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     name: 'memory-palace',
     type: 'sse' as const,
     url: config.memory.memory_palace?.sse_url ?? 'http://localhost:8765',
+    headers: config.memory.memory_palace?.api_key
+      ? { 'X-MCP-API-Key': config.memory.memory_palace.api_key }
+      : undefined,
   };
 
   const mcpServers = [skillMcpServer, memoryPalaceMcpServer];
