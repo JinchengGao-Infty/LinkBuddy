@@ -1,0 +1,11 @@
+{
+  "name": "hacker-news",
+  "description": "Fetch the top 20 stories from Hacker News with titles, links, scores, and comment counts.",
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "permissions": ["network"]
+}
