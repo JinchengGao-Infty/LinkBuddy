@@ -36,7 +36,7 @@ private func requestAccess() throws {
 
 private func eventToOutput(_ event: EKEvent) -> CalendarEventOutput {
     CalendarEventOutput(
-        id: event.calendarItemExternalIdentifier ?? "",
+        id: event.calendarItemIdentifier ?? event.calendarItemExternalIdentifier ?? "",
         title: event.title ?? "",
         startDate: iso8601Formatter.string(from: event.startDate),
         endDate: iso8601Formatter.string(from: event.endDate),
@@ -47,7 +47,12 @@ private func eventToOutput(_ event: EKEvent) -> CalendarEventOutput {
     )
 }
 
-private func findEvent(byExternalId id: String) -> EKEvent? {
+private func findEvent(byId id: String) -> EKEvent? {
+    // Try direct lookup first (calendarItemIdentifier)
+    if let item = store.calendarItem(withIdentifier: id) as? EKEvent {
+        return item
+    }
+    // Fallback: search by external identifier
     let start = Calendar.current.date(byAdding: .year, value: -5, to: Date())!
     let end = Calendar.current.date(byAdding: .year, value: 5, to: Date())!
     let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
@@ -214,7 +219,7 @@ struct CalendarUpdate: ParsableCommand {
     func run() throws {
         try requestAccess()
 
-        guard let event = findEvent(byExternalId: id) else {
+        guard let event = findEvent(byId: id) else {
             printError("Event not found with ID: \(id)")
             return
         }
@@ -262,7 +267,7 @@ struct CalendarDelete: ParsableCommand {
     func run() throws {
         try requestAccess()
 
-        guard let event = findEvent(byExternalId: id) else {
+        guard let event = findEvent(byId: id) else {
             printError("Event not found with ID: \(id)")
             return
         }
