@@ -225,8 +225,10 @@ export class AppleNotesService {
   private buildScript(template: string, vars: Record<string, string>): string {
     let script = template;
     for (const [key, value] of Object.entries(vars)) {
-      // Escape for JavaScript string literal
-      const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+      // Use JSON.stringify for proper JS string literal escaping
+      // It produces "escaped string" with quotes — we strip the outer quotes
+      // since the template already has quotes around the placeholder
+      const escaped = JSON.stringify(value).slice(1, -1);
       script = script.replace(`<${key}>`, escaped);
     }
     return script;

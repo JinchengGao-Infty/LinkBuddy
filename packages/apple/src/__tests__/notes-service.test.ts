@@ -58,6 +58,17 @@ describe('AppleNotesService', () => {
       const script = bridge.exec.mock.calls[0][0] as string;
       expect(script).toContain('\\"hello\\"');
     });
+
+    it('sanitizes input to prevent JXA injection', async () => {
+      bridge.exec.mockResolvedValue({ success: true, notes: [] });
+
+      await service.searchNotes('"; Application("System Events").keystroke("h"); "');
+
+      const script = bridge.exec.mock.calls[0][0] as string;
+      // The malicious input should be fully escaped inside the string
+      expect(script).not.toContain('Application("System Events")');
+      expect(script).toContain('\\"System Events\\"'); // escaped quotes
+    });
   });
 
   describe('readNote()', () => {
