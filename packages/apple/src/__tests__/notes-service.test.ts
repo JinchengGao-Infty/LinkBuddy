@@ -136,13 +136,15 @@ describe('AppleNotesService', () => {
   });
 
   describe('getToolDefinitions()', () => {
-    it('returns 3 tool definitions', () => {
+    it('returns 5 tool definitions', () => {
       const tools = service.getToolDefinitions();
-      expect(tools).toHaveLength(3);
+      expect(tools).toHaveLength(5);
       const names = tools.map(t => t.name);
       expect(names).toContain('apple_notes_search');
       expect(names).toContain('apple_notes_read');
       expect(names).toContain('apple_notes_create');
+      expect(names).toContain('apple_notes_update');
+      expect(names).toContain('apple_notes_delete');
     });
 
     it('apple_notes_search requires query', () => {

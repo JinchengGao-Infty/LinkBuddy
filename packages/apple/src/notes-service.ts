@@ -66,6 +66,39 @@ const CREATE_TEMPLATE = `(() => {
   }});
 })()`;
 
+export interface UpdateNoteParams {
+  name: string;
+  title?: string;
+  body?: string;
+}
+
+const UPDATE_TEMPLATE = `(() => {
+  const Notes = Application("Notes");
+  const matches = Notes.notes.whose({ name: "<NAME>" })();
+  if (matches.length === 0) return JSON.stringify({ success: false, error: "Note not found" });
+  const n = matches[0];
+  const newTitle = "<TITLE>";
+  const newBody = "<BODY>";
+  if (newTitle) n.name = newTitle;
+  if (newBody) n.body = newBody;
+  return JSON.stringify({ success: true, note: {
+    id: n.id(),
+    name: n.name(),
+    body: n.plaintext().substring(0, 500),
+    folder: n.container().name(),
+    creationDate: n.creationDate().toISOString(),
+    modificationDate: n.modificationDate().toISOString()
+  }});
+})()`;
+
+const DELETE_TEMPLATE = `(() => {
+  const Notes = Application("Notes");
+  const matches = Notes.notes.whose({ name: "<NAME>" })();
+  if (matches.length === 0) return JSON.stringify({ success: false, error: "Note not found" });
+  Notes.delete(matches[0]);
+  return JSON.stringify({ success: true });
+})()`;
+
 export class AppleNotesService {
   private readonly bridge: JxaBridge;
 
@@ -104,6 +137,27 @@ export class AppleNotesService {
     return (result as any).note;
   }
 
+  async updateNote(params: UpdateNoteParams): Promise<Note> {
+    const script = this.buildScript(UPDATE_TEMPLATE, {
+      NAME: params.name,
+      TITLE: params.title ?? '',
+      BODY: params.body ?? '',
+    });
+    const result = await this.bridge.exec(script);
+    if (!result.success) {
+      throw new Error((result as any).error ?? 'Failed to update note');
+    }
+    return (result as any).note;
+  }
+
+  async deleteNote(name: string): Promise<void> {
+    const script = this.buildScript(DELETE_TEMPLATE, { NAME: name });
+    const result = await this.bridge.exec(script);
+    if (!result.success) {
+      throw new Error((result as any).error ?? 'Failed to delete note');
+    }
+  }
+
   getToolDefinitions(): ToolDescription[] {
     return [
       {
@@ -139,6 +193,30 @@ export class AppleNotesService {
             folder: { type: 'string', description: 'Folder name to create the note in (default: default folder)' },
           },
           required: ['title'],
+        },
+      },
+      {
+        name: 'apple_notes_update',
+        description: 'Update an existing Apple Note by name.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Current name/title of the note to update' },
+            title: { type: 'string', description: 'New title (optional)' },
+            body: { type: 'string', description: 'New body content (optional)' },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'apple_notes_delete',
+        description: 'Delete an Apple Note by name.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Name/title of the note to delete' },
+          },
+          required: ['name'],
         },
       },
     ];

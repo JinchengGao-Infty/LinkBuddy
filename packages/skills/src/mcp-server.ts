@@ -551,6 +551,22 @@ async function main(): Promise<void> {
       return { content: [{ type: 'text', text: JSON.stringify({ success: true, note }) }] };
     }
 
+    // ── apple_notes_update ─────────────────────────────────────────────────
+    if (notesService && name === 'apple_notes_update') {
+      const note = await notesService.updateNote({
+        name: toolArgs.name as string,
+        title: toolArgs.title as string | undefined,
+        body: toolArgs.body as string | undefined,
+      });
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, note }) }] };
+    }
+
+    // ── apple_notes_delete ─────────────────────────────────────────────────
+    if (notesService && name === 'apple_notes_delete') {
+      await notesService.deleteNote(toolArgs.name as string);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true }) }] };
+    }
+
     // ── Unknown tool ──────────────────────────────────────────────────────
     return {
       content: [
