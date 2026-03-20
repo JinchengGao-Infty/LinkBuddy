@@ -8,3 +8,4 @@ data/
 *.sqlite-shm
 .turbo/
 *.tsbuildinfo
+swift-helper/.build/
