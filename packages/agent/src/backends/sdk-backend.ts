@@ -31,6 +31,7 @@ export class SdkBackend implements AgentBackend {
       const options: Record<string, any> = {
         allowedTools: request.allowedTools,
         cwd: request.workingDirectory,
+        settingSources: ['user', 'project', 'local'],
       };
 
       if (request.systemPrompt) {
