@@ -179,6 +179,9 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
       max_file_size_mb: 10,
       allowed_mime_types: ['image/jpeg', 'image/png'],
     },
+    apple: {
+      enabled: false,
+    },
     users: {
       alice: { name: 'alice', role: 'admin', discord_id: 'discord-alice' },
     },

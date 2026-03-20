@@ -96,7 +96,7 @@ function createMinimalConfig(overrides: Partial<CCBuddyConfig> = {}): CCBuddyCon
       auto_git_commit: true,
     },
     apple: {
-      shortcuts_enabled: false,
+      enabled: false,
     },
     users: {},
     ...overrides,
