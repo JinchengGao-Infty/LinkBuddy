@@ -26,6 +26,7 @@ import { SkillValidator } from './validator.js';
 import { SkillRunner } from './runner.js';
 import type { SkillPermission } from './types.js';
 import { MemoryDatabase, MessageStore, SummaryStore, RetrievalTools } from '@ccbuddy/memory';
+import { SwiftBridge, AppleCalendarService } from '@ccbuddy/apple';
 
 // ── CLI argument parsing ────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ function parseArgs(argv: string[]): {
   autoGitCommit: boolean;
   memoryDbPath: string;
   heartbeatStatusFile: string;
+  appleHelperPath: string;
 } {
   let registryPath = '';
   let skillsDir = '';
@@ -43,6 +45,7 @@ function parseArgs(argv: string[]): {
   let autoGitCommit = true;
   let memoryDbPath = '';
   let heartbeatStatusFile = '';
+  let appleHelperPath = '';
 
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
@@ -64,6 +67,9 @@ function parseArgs(argv: string[]): {
       case '--heartbeat-status-file':
         heartbeatStatusFile = argv[++i] ?? '';
         break;
+      case '--apple-helper':
+        appleHelperPath = argv[++i] ?? '';
+        break;
     }
   }
 
@@ -76,7 +82,7 @@ function parseArgs(argv: string[]): {
     process.exit(1);
   }
 
-  return { registryPath, skillsDir, requireApproval, autoGitCommit, memoryDbPath, heartbeatStatusFile };
+  return { registryPath, skillsDir, requireApproval, autoGitCommit, memoryDbPath, heartbeatStatusFile, appleHelperPath };
 }
 
 // ── Elevated permission check ───────────────────────────────────────────────
@@ -108,6 +114,13 @@ async function main(): Promise<void> {
     const messageStore = new MessageStore(memoryDatabase);
     const summaryStore = new SummaryStore(memoryDatabase);
     retrievalTools = new RetrievalTools(messageStore, summaryStore);
+  }
+
+  // 1c. Optionally wire Apple calendar tools
+  let calendarService: AppleCalendarService | null = null;
+  if (args.appleHelperPath) {
+    const bridge = new SwiftBridge(args.appleHelperPath);
+    calendarService = new AppleCalendarService(bridge);
   }
 
   // 2. Create validator, generator, runner
@@ -219,6 +232,13 @@ async function main(): Promise<void> {
         description: 'Get the latest system health status from the heartbeat monitor. Returns module statuses (process, database, agent) and system metrics (cpu, memory, disk).',
         inputSchema: { type: 'object', properties: {} },
       });
+    }
+
+    // Calendar tools
+    if (calendarService) {
+      for (const tool of calendarService.getToolDefinitions()) {
+        tools.push(tool);
+      }
     }
 
     return { tools };
@@ -383,6 +403,55 @@ async function main(): Promise<void> {
       } catch {
         return { content: [{ type: 'text', text: JSON.stringify({ status: 'no_data', message: 'Heartbeat status file not available' }) }] };
       }
+    }
+
+    // ── apple_calendar_list ────────────────────────────────────────────────
+    if (calendarService && name === 'apple_calendar_list') {
+      const result = await calendarService.listEvents(toolArgs.from as string, toolArgs.to as string);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, events: result }) }] };
+    }
+
+    // ── apple_calendar_search ──────────────────────────────────────────────
+    if (calendarService && name === 'apple_calendar_search') {
+      const result = await calendarService.searchEvents(
+        toolArgs.query as string,
+        toolArgs.from as string | undefined,
+        toolArgs.to as string | undefined,
+      );
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, events: result }) }] };
+    }
+
+    // ── apple_calendar_create ──────────────────────────────────────────────
+    if (calendarService && name === 'apple_calendar_create') {
+      const event = await calendarService.createEvent({
+        title: toolArgs.title as string,
+        start: toolArgs.start as string,
+        end: toolArgs.end as string,
+        calendar: toolArgs.calendar as string | undefined,
+        location: toolArgs.location as string | undefined,
+        notes: toolArgs.notes as string | undefined,
+        allDay: toolArgs.allDay as boolean | undefined,
+      });
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, event }) }] };
+    }
+
+    // ── apple_calendar_update ──────────────────────────────────────────────
+    if (calendarService && name === 'apple_calendar_update') {
+      const event = await calendarService.updateEvent(toolArgs.id as string, {
+        title: toolArgs.title as string | undefined,
+        start: toolArgs.start as string | undefined,
+        end: toolArgs.end as string | undefined,
+        calendar: toolArgs.calendar as string | undefined,
+        location: toolArgs.location as string | undefined,
+        notes: toolArgs.notes as string | undefined,
+      });
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, event }) }] };
+    }
+
+    // ── apple_calendar_delete ──────────────────────────────────────────────
+    if (calendarService && name === 'apple_calendar_delete') {
+      await calendarService.deleteEvent(toolArgs.id as string);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true }) }] };
     }
 
     // ── Unknown tool ──────────────────────────────────────────────────────

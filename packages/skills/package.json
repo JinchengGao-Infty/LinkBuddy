@@ -12,6 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ccbuddy/apple": "*",
     "@ccbuddy/core": "*",
     "@ccbuddy/memory": "*",
     "@modelcontextprotocol/sdk": "^1",
