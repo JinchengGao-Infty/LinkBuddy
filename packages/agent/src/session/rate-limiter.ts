@@ -40,4 +40,13 @@ export class RateLimiter {
 
     return false;
   }
+
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, bucket] of this.buckets) {
+      if (now - bucket.windowStart > WINDOW_MS) {
+        this.buckets.delete(key);
+      }
+    }
+  }
 }

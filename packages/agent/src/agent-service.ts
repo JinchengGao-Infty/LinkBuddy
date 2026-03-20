@@ -227,6 +227,7 @@ export class AgentService {
 
   tick(): void {
     this.sessionManager.tick();
+    this.rateLimiter.cleanup();
   }
 
   getActiveSessions(): Session[] {
