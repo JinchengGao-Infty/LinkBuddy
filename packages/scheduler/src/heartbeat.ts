@@ -24,6 +24,7 @@ export class HeartbeatMonitor {
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
   private dailyReportTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly startTime: number;
+  private previousCpuSnapshot: os.CpuInfo[] | null = null;
 
   constructor(opts: HeartbeatOptions) {
     this.opts = opts;
@@ -127,15 +128,25 @@ export class HeartbeatMonitor {
   }
 
   private async getSystemMetrics(): Promise<{ cpuPercent: number; memoryPercent: number; diskPercent: number }> {
-    // CPU percent from os.cpus()
-    const cpus = os.cpus();
-    let totalIdle = 0;
-    let totalTick = 0;
-    for (const cpu of cpus) {
-      totalIdle += cpu.times.idle;
-      totalTick += cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.irq + cpu.times.idle;
+    // CPU percent using delta between consecutive snapshots for accurate current usage
+    const currentCpuSnapshot = os.cpus();
+    let cpuPercent = 0;
+    if (this.previousCpuSnapshot !== null && this.previousCpuSnapshot.length === currentCpuSnapshot.length) {
+      let totalBusy = 0;
+      let totalDelta = 0;
+      for (let i = 0; i < currentCpuSnapshot.length; i++) {
+        const prev = this.previousCpuSnapshot[i].times;
+        const curr = currentCpuSnapshot[i].times;
+        const prevTotal = prev.user + prev.nice + prev.sys + prev.irq + prev.idle;
+        const currTotal = curr.user + curr.nice + curr.sys + curr.irq + curr.idle;
+        const deltaTotal = currTotal - prevTotal;
+        const deltaBusy = (curr.user + curr.sys - prev.user - prev.sys);
+        totalDelta += deltaTotal;
+        totalBusy += deltaBusy;
+      }
+      cpuPercent = totalDelta > 0 ? Math.round((totalBusy / totalDelta) * 100) : 0;
     }
-    const cpuPercent = totalTick > 0 ? Math.round(((totalTick - totalIdle) / totalTick) * 100) : 0;
+    this.previousCpuSnapshot = currentCpuSnapshot;
 
     // Memory percent: RSS / total system memory
     const rss = process.memoryUsage().rss;
