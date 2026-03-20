@@ -26,9 +26,8 @@ export interface BootstrapResult {
 
 export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
   // 1. Load config
-  const resolvedConfigDir = configDir ?? process.cwd();
-  const configFileDir = join(resolvedConfigDir, 'config');
-  const config = loadConfig(configFileDir);
+  const resolvedConfigDir = configDir ?? join(process.cwd(), 'config');
+  const config = loadConfig(resolvedConfigDir);
 
   // 2. Create event bus
   const eventBus = createEventBus();
@@ -140,8 +139,9 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
 
   // 7b. Wire Apple Calendar if enabled
   if (config.apple.enabled) {
+    const projectRoot = dirname(resolvedConfigDir);
     const helperPath = config.apple.helper_path
-      ?? join(resolvedConfigDir, 'swift-helper', '.build', 'release', 'ccbuddy-helper');
+      ?? join(projectRoot, 'swift-helper', '.build', 'release', 'ccbuddy-helper');
     skillMcpServer.args.push('--apple-helper', helperPath);
   }
 
