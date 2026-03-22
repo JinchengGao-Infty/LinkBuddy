@@ -126,7 +126,7 @@ export class Gateway {
     const trimmed = msg.text.trim();
     if (trimmed.startsWith('/') && this.deps.onCommand) {
       const command = trimmed.split(/\s+/)[0].toLowerCase();
-      if (command === '/compact' || command === '/new') {
+      if (command === '/compact' || command === '/new' || command === '/context') {
         const adapter = this.adapters.get(msg.platform);
         if (adapter) {
           await adapter.setTypingIndicator(msg.channelId, true);

@@ -209,6 +209,24 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
         if (stats.condensedNodesCreated > 0) parts.push(`${stats.condensedNodesCreated} condensed`);
         return parts.join(' ');
       }
+      if (command === '/context') {
+        const context = contextAssembler.assemble(userId, sessionId);
+        const maxTokens = config.memory.max_context_tokens;
+        const usedPct = Math.round((context.totalTokens / maxTokens) * 100);
+        const remaining = maxTokens - context.totalTokens;
+        const lines = [
+          `📊 上下文使用情况`,
+          ``,
+          `已用: ${(context.totalTokens / 1000).toFixed(1)}k / ${(maxTokens / 1000).toFixed(0)}k tokens (${usedPct}%)`,
+          `剩余: ${(remaining / 1000).toFixed(1)}k tokens`,
+          `${'█'.repeat(Math.round(usedPct / 5))}${'░'.repeat(20 - Math.round(usedPct / 5))} ${usedPct}%`,
+          ``,
+          `原始消息: ${context.messages.length} 条`,
+          `压缩摘要: ${context.summaries.length} 个`,
+          context.needsCompaction ? `⚠️ 接近上限，下次请求将自动压缩` : `✅ 空间充足`,
+        ];
+        return lines.join('\n');
+      }
       if (command === '/new') {
         // Consolidate first to preserve context as summaries
         await consolidationService.consolidate(userId);
