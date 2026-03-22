@@ -12,6 +12,8 @@ export interface ConsolidationServiceDeps {
   database: MemoryDatabase;
   config: MemoryConfig;
   summarize: (text: string) => Promise<string>;
+  /** Called before consolidation to extract important memories from messages about to be compressed */
+  extractMemories?: (messages: string) => Promise<void>;
 }
 
 export class ConsolidationService {
@@ -20,6 +22,7 @@ export class ConsolidationService {
   private readonly database: MemoryDatabase;
   private readonly config: MemoryConfig;
   private readonly summarize: (text: string) => Promise<string>;
+  private readonly extractMemories?: (messages: string) => Promise<void>;
 
   constructor(deps: ConsolidationServiceDeps) {
     this.messageStore = deps.messageStore;
@@ -27,6 +30,7 @@ export class ConsolidationService {
     this.database = deps.database;
     this.config = deps.config;
     this.summarize = deps.summarize;
+    this.extractMemories = deps.extractMemories;
   }
 
   async consolidate(userId: string): Promise<ConsolidationStats> {
@@ -37,6 +41,19 @@ export class ConsolidationService {
       condensedNodesCreated: 0,
       messagesPruned: 0,
     };
+
+    // Phase 0: Extract important memories before compression
+    if (this.extractMemories) {
+      const unsummarized = this.messageStore.getUnsummarizedMessages(userId, this.config.fresh_tail_count);
+      if (unsummarized.length > 0) {
+        const text = unsummarized.map(m => `[${m.role}] ${m.content}`).join('\n');
+        try {
+          await this.extractMemories(text);
+        } catch (err) {
+          console.error('[Consolidation] Memory extraction failed (continuing with compaction):', err);
+        }
+      }
+    }
 
     // Phase 1: Leaf Summarization
     await this.leafSummarize(userId, stats);

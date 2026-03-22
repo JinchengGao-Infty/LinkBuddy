@@ -94,11 +94,35 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     return result;
   };
 
+  const extractMemories = async (text: string): Promise<void> => {
+    const request: import('@ccbuddy/core').AgentRequest = {
+      prompt: text,
+      userId: 'system',
+      sessionId: `memory-extract:${Date.now()}`,
+      channelId: 'internal',
+      platform: 'system',
+      permissionLevel: 'system',
+      mcpServers,
+      systemPrompt: `You are a memory extraction agent. Review the conversation below and extract any important information worth remembering long-term. Use mcp__memory-palace__search_memory to check what's already stored, then use mcp__memory-palace__create_memory or mcp__memory-palace__update_memory to persist new:
+- User preferences or decisions
+- Project updates or architecture changes
+- Important findings or solutions
+- New tools, services, or configurations
+Skip trivial chat, greetings, and debugging noise. If nothing noteworthy, do nothing. Be selective — only store high-signal information.`,
+    };
+
+    const generator = agentService.handleRequest(request);
+    for await (const event of generator) {
+      if (event.type === 'complete' || event.type === 'error') break;
+    }
+  };
+
   const consolidationService = new ConsolidationService({
     messageStore,
     summaryStore,
     database,
     config: config.memory,
+    extractMemories,
     summarize,
   });
 
