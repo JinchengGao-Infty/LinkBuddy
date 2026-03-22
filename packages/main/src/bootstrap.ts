@@ -177,16 +177,11 @@ Skip trivial chat, greetings, and debugging noise. If nothing noteworthy, do not
 
   const mcpServers = [skillMcpServer, memoryPalaceMcpServer, ...userMcpServers];
 
-  const skillNudge = [
-    // Link Buddy identity & Telegram-specific behavior
-    '你是 Link Buddy，通过 Telegram 与 Infty 交互。回复适合手机阅读，段落短小。',
-    '支持命令：/context（token 用量）、/compact（压缩上下文）、/new（新对话）。',
-    // Memory context usage
-    '<memory_context> 中的内容是你和 Infty 的对话记忆，把它当作你自己的记忆使用。',
-    // Skills
-    'You have access to reusable skills (prefixed skill_) and can create new ones with create_skill.',
-    'For image generation requests, use the skill_generate_image tool directly with a descriptive prompt. Do not deliberate — just call the tool.',
-  ].join('\n\n');
+  // Load system prompt from external file for easy editing
+  const systemPromptPath = resolve(dirname(dirname(dirname(dirname(__filename)))), 'config', 'system-prompt.md');
+  const skillNudge = existsSync(systemPromptPath)
+    ? readFileSync(systemPromptPath, 'utf8').trim()
+    : '你是 Link Buddy，通过 Telegram 与 Infty 交互。';
 
   // 7c. Voice services (optional)
   let transcriptionService: TranscriptionService | undefined;
@@ -266,6 +261,11 @@ Skip trivial chat, greetings, and debugging noise. If nothing noteworthy, do not
         // Clear session messages so fresh tail is empty
         const deleted = messageStore.deleteBySession(userId, sessionId);
         return `New conversation started. (${deleted} messages archived)`;
+      }
+      if (command === '/restart') {
+        // Send reply before exiting so user knows it's intentional
+        setTimeout(() => process.exit(0), 500);
+        return '🔄 Restarting LinkBuddy...';
       }
       return null;
     },

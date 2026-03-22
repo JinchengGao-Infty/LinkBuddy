@@ -122,6 +122,7 @@ export class TelegramAdapter implements PlatformAdapter {
                 { command: 'context', description: '查看上下文使用情况' },
                 { command: 'compact', description: '压缩对话历史' },
                 { command: 'new', description: '开始新对话' },
+                { command: 'restart', description: '重启 LinkBuddy' },
               ]).catch(err => console.warn('[TelegramAdapter] Failed to set commands:', err.message));
             },
             allowed_updates: ['message'],
