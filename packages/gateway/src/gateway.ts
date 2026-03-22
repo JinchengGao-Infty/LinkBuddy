@@ -277,11 +277,17 @@ export class Gateway {
               }
             }
 
+            // Store assistant response with tool call context so next turn
+            // knows what tools were used and what results came back
+            const storedContent = toolLog.length > 0
+              ? `<tool_calls>\n${toolLog.join('\n')}\n</tool_calls>\n\n${event.response}`
+              : event.response;
+
             this.deps.storeMessage({
               userId: request.userId,
               sessionId: request.sessionId,
               platform: request.platform,
-              content: event.response,
+              content: storedContent,
               role: 'assistant',
             });
 
