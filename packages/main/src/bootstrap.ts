@@ -1,4 +1,5 @@
 import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { writeFileSync, renameSync, readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { loadConfig, createEventBus, UserManager, TranscriptionService, SpeechService } from '@ccbuddy/core';
@@ -178,7 +179,7 @@ Skip trivial chat, greetings, and debugging noise. If nothing noteworthy, do not
   const mcpServers = [skillMcpServer, memoryPalaceMcpServer, ...userMcpServers];
 
   // Load system prompt from external file for easy editing
-  const systemPromptPath = resolve(dirname(dirname(dirname(dirname(__filename)))), 'config', 'system-prompt.md');
+  const systemPromptPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'config', 'system-prompt.md');
   const skillNudge = existsSync(systemPromptPath)
     ? readFileSync(systemPromptPath, 'utf8').trim()
     : '你是 Link Buddy，通过 Telegram 与 Infty 交互。';
