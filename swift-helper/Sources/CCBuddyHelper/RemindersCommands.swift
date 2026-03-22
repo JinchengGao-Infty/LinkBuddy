@@ -1,73 +1,37 @@
 import ArgumentParser
-import EventKit
 import Foundation
 
-private let reminderStore = EKEventStore()
+// MARK: - AppleScript helper (shared with CalendarCommands via same module)
 
-private func requestRemindersAccess() throws {
-    let semaphore = DispatchSemaphore(value: 0)
-    var accessGranted = false
-    var accessError: Error?
+private func runAppleScript(_ script: String, app: String = "Reminders") throws -> String {
+    // Ensure the target app is running (needed for launchd/SSH contexts)
+    let openProc = Process()
+    openProc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    openProc.arguments = ["-gja", app]
+    try? openProc.run()
+    openProc.waitUntilExit()
+    Thread.sleep(forTimeInterval: 0.5)
 
-    if #available(macOS 14.0, *) {
-        reminderStore.requestFullAccessToReminders { granted, error in
-            accessGranted = granted
-            accessError = error
-            semaphore.signal()
-        }
-    } else {
-        reminderStore.requestAccess(to: .reminder) { granted, error in
-            accessGranted = granted
-            accessError = error
-            semaphore.signal()
-        }
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    proc.arguments = ["-e", script]
+    let pipe = Pipe()
+    proc.standardOutput = pipe
+    proc.standardError = pipe
+    try proc.run()
+    proc.waitUntilExit()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if proc.terminationStatus != 0 {
+        throw NSError(domain: "AppleScript", code: Int(proc.terminationStatus),
+                      userInfo: [NSLocalizedDescriptionKey: output])
     }
-
-    semaphore.wait()
-
-    if let err = accessError {
-        throw err
-    }
-    if !accessGranted {
-        printError("Reminders access denied. Grant permission in System Settings > Privacy & Security > Reminders.")
-        Foundation.exit(1)
-    }
+    return output
 }
 
-private func reminderToOutput(_ reminder: EKReminder) -> ReminderOutput {
-    var dueDateString: String? = nil
-    if let components = reminder.dueDateComponents {
-        if let date = Calendar.current.date(from: components) {
-            dueDateString = iso8601Formatter.string(from: date)
-        }
-    }
-    return ReminderOutput(
-        id: reminder.calendarItemIdentifier,
-        title: reminder.title ?? "",
-        isCompleted: reminder.isCompleted,
-        dueDate: dueDateString,
-        list: reminder.calendar?.title ?? "",
-        notes: reminder.notes ?? "",
-        priority: reminder.priority
-    )
-}
-
-private func fetchAllReminders(from calendars: [EKCalendar]?) -> [EKReminder] {
-    let semaphore = DispatchSemaphore(value: 0)
-    var fetchedReminders: [EKReminder] = []
-
-    let predicate = reminderStore.predicateForReminders(in: calendars)
-    reminderStore.fetchReminders(matching: predicate) { reminders in
-        fetchedReminders = reminders ?? []
-        semaphore.signal()
-    }
-
-    semaphore.wait()
-    return fetchedReminders
-}
-
-private func findReminder(byId id: String) -> EKReminder? {
-    return reminderStore.calendarItem(withIdentifier: id) as? EKReminder
+private func escapeAS(_ s: String) -> String {
+    return s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
 }
 
 // MARK: - List
@@ -82,27 +46,37 @@ struct RemindersList: ParsableCommand {
     var showCompleted: Bool = false
 
     func run() throws {
-        try requestRemindersAccess()
+        let listFilter = list.map { "of list \"\(escapeAS($0))\"" } ?? ""
+        let completedFilter = showCompleted ? "" : "whose completed is false"
 
-        var targetCalendars: [EKCalendar]? = nil
-        let reminderCalendars = reminderStore.calendars(for: .reminder)
+        let script = """
+        set output to ""
+        tell application "Reminders"
+            set allReminders to every reminder \(listFilter) \(completedFilter)
+            repeat with rem in allReminders
+                set remId to id of rem
+                set remTitle to name of rem
+                set remCompleted to completed of rem
+                set remDue to ""
+                try
+                    set d to due date of rem
+                    set remDue to (d as «class isot» as string)
+                end try
+                set remList to name of container of rem
+                set remNotes to ""
+                try
+                    set remNotes to body of rem
+                end try
+                set remPriority to priority of rem
+                set output to output & remId & "\\t" & remTitle & "\\t" & remCompleted & "\\t" & remDue & "\\t" & remList & "\\t" & remNotes & "\\t" & remPriority & "\\n"
+            end repeat
+        end tell
+        return output
+        """
 
-        if let listName = list {
-            if let cal = reminderCalendars.first(where: { $0.title == listName }) {
-                targetCalendars = [cal]
-            } else {
-                printError("Reminder list '\(listName)' not found. Available: \(reminderCalendars.map(\.title).joined(separator: ", "))")
-                return
-            }
-        }
-
-        var reminders = fetchAllReminders(from: targetCalendars)
-
-        if !showCompleted {
-            reminders = reminders.filter { !$0.isCompleted }
-        }
-
-        printJSON(ReminderListResult(success: true, reminders: reminders.map(reminderToOutput)))
+        let result = try runAppleScript(script)
+        let reminders = parseRemindersOutput(result)
+        printJSON(ReminderListResult(success: true, reminders: reminders))
     }
 }
 
@@ -127,39 +101,55 @@ struct RemindersCreate: ParsableCommand {
     var priority: Int?
 
     func run() throws {
-        try requestRemindersAccess()
+        let titleEsc = escapeAS(title)
+        let listTarget = list.map { "list \"\(escapeAS($0))\"" } ?? "default list"
 
-        let reminder = EKReminder(eventStore: reminderStore)
-        reminder.title = title
+        var props = "name:\"\(titleEsc)\""
+        if let p = priority { props += ", priority:\(p)" }
 
-        if let n = notes { reminder.notes = n }
-        if let p = priority { reminder.priority = p }
-
-        if let dueStr = due {
-            guard let dueDate = iso8601Formatter.date(from: dueStr) else {
-                printError("Invalid --due date: \(dueStr)")
-                return
-            }
-            reminder.dueDateComponents = Calendar.current.dateComponents(
-                [.year, .month, .day, .hour, .minute, .second],
-                from: dueDate
-            )
+        var extraLines: [String] = []
+        if let dueStr = due, let dueDate = parseISO8601Date(dueStr) {
+            let df = DateFormatter()
+            df.locale = Locale.current
+            df.dateStyle = .long
+            df.timeStyle = .long
+            extraLines.append("set due date of newRem to date \"\(df.string(from: dueDate))\"")
+        }
+        if let n = notes {
+            extraLines.append("set body of newRem to \"\(escapeAS(n))\"")
         }
 
-        let reminderCalendars = reminderStore.calendars(for: .reminder)
-        if let listName = list {
-            if let cal = reminderCalendars.first(where: { $0.title == listName }) {
-                reminder.calendar = cal
-            } else {
-                printError("Reminder list '\(listName)' not found. Available: \(reminderCalendars.map(\.title).joined(separator: ", "))")
-                return
-            }
+        let script = """
+        tell application "Reminders"
+            tell \(listTarget)
+                set newRem to make new reminder with properties {\(props)}
+                \(extraLines.joined(separator: "\n                "))
+                set remId to id of newRem
+                set remTitle to name of newRem
+                set remCompleted to completed of newRem
+                set remDue to ""
+                try
+                    set d to due date of newRem
+                    set remDue to (d as «class isot» as string)
+                end try
+                set remList to name of container of newRem
+                set remNotes to ""
+                try
+                    set remNotes to body of newRem
+                end try
+                set remPriority to priority of newRem
+                return remId & "\\t" & remTitle & "\\t" & remCompleted & "\\t" & remDue & "\\t" & remList & "\\t" & remNotes & "\\t" & remPriority
+            end tell
+        end tell
+        """
+
+        let result = try runAppleScript(script)
+        let reminders = parseRemindersOutput(result)
+        if let reminder = reminders.first {
+            printJSON(ReminderSingleResult(success: true, reminder: reminder))
         } else {
-            reminder.calendar = reminderStore.defaultCalendarForNewReminders()
+            printError("Failed to create reminder")
         }
-
-        try reminderStore.save(reminder, commit: true)
-        printJSON(ReminderSingleResult(success: true, reminder: reminderToOutput(reminder)))
     }
 }
 
@@ -172,17 +162,46 @@ struct RemindersComplete: ParsableCommand {
     var id: String
 
     func run() throws {
-        try requestRemindersAccess()
+        let idEsc = escapeAS(id)
+        let script = """
+        tell application "Reminders"
+            set targetRem to missing value
+            repeat with lst in lists
+                try
+                    set rems to (every reminder of lst whose id is "\(idEsc)")
+                    if (count of rems) > 0 then
+                        set targetRem to item 1 of rems
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if targetRem is missing value then error "Reminder not found with ID: \(idEsc)"
+            set completed of targetRem to true
+            set remId to id of targetRem
+            set remTitle to name of targetRem
+            set remCompleted to completed of targetRem
+            set remDue to ""
+            try
+                set d to due date of targetRem
+                set remDue to (d as «class isot» as string)
+            end try
+            set remList to name of container of targetRem
+            set remNotes to ""
+            try
+                set remNotes to body of targetRem
+            end try
+            set remPriority to priority of targetRem
+            return remId & "\\t" & remTitle & "\\t" & remCompleted & "\\t" & remDue & "\\t" & remList & "\\t" & remNotes & "\\t" & remPriority
+        end tell
+        """
 
-        guard let reminder = findReminder(byId: id) else {
-            printError("Reminder not found with ID: \(id)")
-            return
+        let result = try runAppleScript(script)
+        let reminders = parseRemindersOutput(result)
+        if let reminder = reminders.first {
+            printJSON(ReminderSingleResult(success: true, reminder: reminder))
+        } else {
+            printError("Failed to complete reminder")
         }
-
-        reminder.isCompleted = true
-        reminder.completionDate = Date()
-        try reminderStore.save(reminder, commit: true)
-        printJSON(ReminderSingleResult(success: true, reminder: reminderToOutput(reminder)))
     }
 }
 
@@ -195,14 +214,43 @@ struct RemindersDelete: ParsableCommand {
     var id: String
 
     func run() throws {
-        try requestRemindersAccess()
-
-        guard let reminder = findReminder(byId: id) else {
-            printError("Reminder not found with ID: \(id)")
-            return
-        }
-
-        try reminderStore.remove(reminder, commit: true)
+        let idEsc = escapeAS(id)
+        let script = """
+        tell application "Reminders"
+            repeat with lst in lists
+                try
+                    set rems to (every reminder of lst whose id is "\(idEsc)")
+                    if (count of rems) > 0 then
+                        delete item 1 of rems
+                        return "ok"
+                    end if
+                end try
+            end repeat
+            error "Reminder not found with ID: \(idEsc)"
+        end tell
+        """
+        _ = try runAppleScript(script)
         printJSON(SuccessResult(success: true))
+    }
+}
+
+// MARK: - Parser
+
+private func parseRemindersOutput(_ raw: String) -> [ReminderOutput] {
+    guard !raw.isEmpty else { return [] }
+    return raw.components(separatedBy: "\n").compactMap { line in
+        let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !line.isEmpty else { return nil }
+        let parts = line.components(separatedBy: "\t")
+        guard parts.count >= 7 else { return nil }
+        return ReminderOutput(
+            id: parts[0],
+            title: parts[1],
+            isCompleted: parts[2] == "true",
+            dueDate: parts[3].isEmpty ? nil : parts[3],
+            list: parts[4],
+            notes: parts[5],
+            priority: Int(parts[6]) ?? 0
+        )
     }
 }

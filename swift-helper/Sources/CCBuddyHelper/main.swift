@@ -1,5 +1,4 @@
 import ArgumentParser
-import EventKit
 import Foundation
 
 @main
