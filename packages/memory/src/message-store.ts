@@ -61,10 +61,10 @@ export class MessageStore {
   }
 
   getFreshTail(userId: string, sessionId: string, limit: number): StoredMessage[] {
-    // Fetch the last `limit` rows by timestamp DESC, then reverse to get chronological order
+    // Only fetch unsummarized messages — summarized ones are already captured in summaries
     const rows = this.db.raw().prepare(`
       SELECT * FROM messages
-      WHERE user_id = ? AND session_id = ?
+      WHERE user_id = ? AND session_id = ? AND summarized_at IS NULL
       ORDER BY timestamp DESC, id DESC
       LIMIT ?
     `).all(userId, sessionId, limit);
