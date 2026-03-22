@@ -228,16 +228,8 @@ async function main(): Promise<void> {
       });
     }
 
-    // Memory retrieval tools — exposed when --memory-db is provided
-    if (retrievalTools) {
-      for (const tool of retrievalTools.getToolDefinitions()) {
-        tools.push({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema as Record<string, unknown>,
-        });
-      }
-    }
+    // Memory retrieval tools removed — Memory Palace MCP handles all memory operations.
+    // Conversation history is injected via <memory_context> in the prompt.
 
     // System health tool — exposed when --heartbeat-status-file is provided
     if (args.heartbeatStatusFile) {
@@ -401,27 +393,6 @@ async function main(): Promise<void> {
       return {
         content: [{ type: 'text', text: JSON.stringify(cleanOutput) }],
       };
-    }
-
-    // ── memory_grep ───────────────────────────────────────────────────────
-    if (retrievalTools && name === 'memory_grep') {
-      const result = retrievalTools.grep(toolArgs.userId as string, toolArgs.query as string);
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-
-    // ── memory_describe ───────────────────────────────────────────────────
-    if (retrievalTools && name === 'memory_describe') {
-      const result = retrievalTools.describe(toolArgs.userId as string, {
-        startMs: toolArgs.startMs as number,
-        endMs: toolArgs.endMs as number,
-      });
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-
-    // ── memory_expand ─────────────────────────────────────────────────────
-    if (retrievalTools && name === 'memory_expand') {
-      const result = retrievalTools.expand(toolArgs.userId as string, toolArgs.nodeId as number);
-      return { content: [{ type: 'text', text: JSON.stringify(result ?? { error: 'Node not found' }) }] };
     }
 
     // ── system_health ─────────────────────────────────────────────────────

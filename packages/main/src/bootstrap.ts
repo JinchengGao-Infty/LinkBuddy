@@ -9,7 +9,6 @@ import {
   SummaryStore,
   ProfileStore,
   ContextAssembler,
-  RetrievalTools,
   ConsolidationService,
   BackupService,
 } from '@ccbuddy/memory';
@@ -68,8 +67,6 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     contextThreshold: config.memory.context_threshold,
   });
 
-  const retrievalTools = new RetrievalTools(messageStore, summaryStore);
-
   // 6b. Create consolidation and backup services
   const summarize = async (text: string): Promise<string> => {
     const sessionId = `consolidation:${Date.now()}`;
@@ -111,14 +108,10 @@ export async function bootstrap(configDir?: string): Promise<BootstrapResult> {
     eventBus,
   });
 
-  // 7. Create SkillRegistry and register retrieval tools
+  // 7. Create SkillRegistry
   const registryPath = join(dirname(config.skills.generated_dir), 'registry.yaml');
   const skillRegistry = new SkillRegistry(registryPath);
   await skillRegistry.load();
-
-  for (const tool of retrievalTools.getToolDefinitions()) {
-    skillRegistry.registerExternalTool(tool);
-  }
 
   // Build skill MCP server spec
   const skillMcpServerPath = config.skills.mcp_server_path ?? MCP_SERVER_PATH;

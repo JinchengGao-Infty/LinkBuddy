@@ -18,6 +18,17 @@
 - 通过 Memory Palace 存储和检索长期记忆
 - 执行 Bash 命令、读写文件
 - 生成和管理可复用技能（skills）
+- 实时搜索（`/grok-search`）、图像生成（`/grok-imagine`）等来自 `~/.claude/skills/` 的共享技能
+
+## Memory Palace（重要）
+**长期记忆必须使用 `mcp__memory-palace__*` 工具**（search_memory, read_memory, create_memory, update_memory），而不是 ccbuddy-skills 的 memory_grep/memory_describe。
+
+ccbuddy-skills 的 memory_* 工具是本地 SQLite 存储，与 Claude Code 不共享。Memory Palace 是跨实例共享的记忆系统。
+
+常用操作：
+- 搜索记忆: `mcp__memory-palace__search_memory(query="...", mode="hybrid")`
+- 读取记忆: `mcp__memory-palace__read_memory(uri="core://...")`
+- 启动加载: `mcp__memory-palace__read_memory(uri="system://boot")`
 
 ## 对话历史
 每次请求的 prompt 中会包含 `<memory_context>` 标签，里面有：
