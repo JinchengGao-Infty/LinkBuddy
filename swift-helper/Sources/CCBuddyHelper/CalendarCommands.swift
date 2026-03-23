@@ -30,8 +30,8 @@ struct CalendarList: ParsableCommand {
         let script = """
         set output to ""
         tell application "Calendar"
-            set startDate to date "\(formatDateForAppleScript(startDate))"
-            set endDate to date "\(formatDateForAppleScript(endDate))"
+            set startDate to \(formatDateForAppleScript(startDate))
+            set endDate to \(formatDateForAppleScript(endDate))
             repeat with cal in calendars
                 set calName to name of cal
                 set evts to (every event of cal whose start date ≥ startDate and start date < endDate)
@@ -87,8 +87,8 @@ struct CalendarSearch: ParsableCommand {
         let script = """
         set output to ""
         tell application "Calendar"
-            set startDate to date "\(formatDateForAppleScript(startDate))"
-            set endDate to date "\(formatDateForAppleScript(endDate))"
+            set startDate to \(formatDateForAppleScript(startDate))
+            set endDate to \(formatDateForAppleScript(endDate))
             repeat with cal in calendars
                 set calName to name of cal
                 set evts to (every event of cal whose start date ≥ startDate and start date < endDate)
@@ -170,7 +170,7 @@ struct CalendarCreate: ParsableCommand {
         let calSpec = calendar.map { "calendar \"\(escapeForAppleScript($0))\"" } ?? "default calendar"
 
         let props = """
-        summary:"\(titleEsc)", start date:date "\(formatDateForAppleScript(startDate))", end date:date "\(formatDateForAppleScript(endDate))", allday event:\(allDay)
+        summary:"\(titleEsc)", start date:\(formatDateForAppleScript(startDate)), end date:\(formatDateForAppleScript(endDate)), allday event:\(allDay)
         """
 
         let script = """
@@ -230,10 +230,10 @@ struct CalendarUpdate: ParsableCommand {
         var setLines: [String] = []
         if let t = title { setLines.append("set summary of targetEvent to \"\(escapeForAppleScript(t))\"") }
         if let s = start, let d = parseISO8601Date(s) {
-            setLines.append("set start date of targetEvent to date \"\(formatDateForAppleScript(d))\"")
+            setLines.append("set start date of targetEvent to \(formatDateForAppleScript(d))")
         }
         if let e = end, let d = parseISO8601Date(e) {
-            setLines.append("set end date of targetEvent to date \"\(formatDateForAppleScript(d))\"")
+            setLines.append("set end date of targetEvent to \(formatDateForAppleScript(d))")
         }
         if let loc = location { setLines.append("set location of targetEvent to \"\(escapeForAppleScript(loc))\"") }
         if let n = notes { setLines.append("set description of targetEvent to \"\(escapeForAppleScript(n))\"") }
